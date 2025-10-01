@@ -1,0 +1,26 @@
+archetype: marketplace
+label: 중고거래/선입금
+slot_hints:
+  deception:
+    quote:
+      examples:
+        - "입금만 하면 바로 오늘 발송합니다. 안전거래도 가능한데 수수료가 커요."
+        - "급처라서 싸게 드려요. 선입금 먼저 부탁드려요."
+      tips:
+        - "판매 글/DM에서 상대가 한 말 그대로 인용"
+        - "‘안전거래 거부’/‘급처’ 같은 표현 캡처"
+    channel:
+      examples: ["당근/번개장터/중고나라 DM", "카톡 아이디 교환 후 대화"]
+  disposition:
+    how:
+      examples: ["계좌이체(○○은행, 계좌주 김○○)", "문화상품권/포인트 전송"]
+      tips: ["이체 시각·금액·거래ID 기재"]
+  property_gain:
+    proof:
+      examples: ["이체 내역 캡처", "거래 플랫폼 메시지 캡처", "운송장 미전송/허위 운송장"]
+  causation:
+    timeline:
+      examples:
+        - "3/2 구매 의사 표시 → 3/2 21:10 선입금 → 이후 발송 약속 파기/차단"
+
+# 이런식으로 확장해서 가벼운 RAG 구현해볼까 생각중

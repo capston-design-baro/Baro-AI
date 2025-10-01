@@ -1,0 +1,101 @@
+offense: fraud
+title_ko: 사기죄
+statute_ref: "형법 제347조"
+
+includes:
+  - party_info
+
+elements:
+  - id: deception
+    label: 기망행위
+    required: true
+    slots:
+      must: ["quote", "who", "when", "where", "channel"]
+      nice_to_have: ["role_claim", "ability_claim", "third_party", "doc_or_link"]
+    questions:
+      - id: dec_quote
+        slot: quote
+        text: "상대가 한 말을 가능하면 그대로 적어주세요. (예: “시세보다 20% 싸게 해줄게”)"
+      - id: dec_who
+        slot: who
+        text: "그 말을 한 사람은 누구인가요? (이름/별칭, 직함/소속을 아는 만큼)"
+      - id: dec_when
+        slot: when
+        text: "그 말은 언제 있었나요? (YYYY-MM-DD HH:MM)"
+      - id: dec_where
+        slot: where
+        text: "어디에서 있었나요? (예: 서울 강남구 ○○커피숍 / 카톡 대화방)"
+      - id: dec_channel
+        slot: channel
+        text: "어떤 방식이었나요? (대면/전화/카톡/문자/게시글 링크)"
+      - id: dec_role
+        slot: role_claim
+        text: "상대가 특정 직업/직함을 말했나요? (예: ㈜○○ OO팀장)"
+      - id: dec_ability
+        slot: ability_claim
+        text: "어떤 능력/권한이 있다고 했나요? (예: ‘대출 알선 가능’)"
+      - id: dec_third
+        slot: third_party
+        text: "다른 사람/회사/기관을 끌어들여 말했나요? (예: 상가 주인/컨설팅 회사)"
+      - id: dec_link
+        slot: doc_or_link
+        text: "관련 계약서/홍보자료/사이트/게시물 링크가 있나요?"
+
+  - id: disposition
+    label: 처분행위
+    required: true
+    slots:
+      must: ["what_action", "when", "how", "to_whom"]
+      nice_to_have: ["contract", "location"]
+    questions:
+      - id: disp_what
+        slot: what_action
+        text: "그 말을 믿고 어떤 행동을 했나요? (돈 보냄/물건 전달/계약함 등)"
+      - id: disp_when
+        slot: when
+        text: "그 행동은 언제였나요? (YYYY-MM-DD HH:MM)"
+      - id: disp_how
+        slot: how
+        text: "어떤 방법이었나요? (계좌이체/현금/수표/택배/전자서명 등)"
+      - id: disp_to
+        slot: to_whom
+        text: "누구에게 건네거나 보냈나요? (이름/계좌주 등, 민감정보는 일부 가려도 됨)"
+      - id: disp_contract
+        slot: contract
+        text: "계약서/영수증/메모 등 문서가 있나요? 있으면 종류와 대략 내용을 적어주세요."
+      - id: disp_where
+        slot: location
+        text: "어디에서 이루어졌나요? (예: ○○커피숍/회사/자택/온라인)"
+
+  - id: causation
+    label: 인과관계
+    required: true
+    slots:
+      must: ["timeline", "why_believed"]
+    questions:
+      - id: cau_timeline
+        slot: timeline
+        text: "일어난 순서를 시간대로 적어주세요. (예: 3/2 권유 → 3/10 송금 → 이후 연락두절)"
+      - id: cau_why
+        slot: why_believed
+        text: "왜 그 말을 믿고 행동했나요? (믿게 된 이유/상대의 말/상황)"
+
+  - id: property_gain
+    label: 재산상 손해
+    required: true
+    slots:
+      must: ["amount", "proof"]
+      nice_to_have: ["recovery_status"]
+    questions:
+      - id: pg_amount
+        slot: amount
+        text: "얼마를 잃었나요? 또는 어떤 물건(가치 얼마)을 건넸나요?"
+      - id: pg_proof
+        slot: proof
+        text: "이체/전달을 보여줄 수 있는 자료가 있나요? (거래내역/통장사본/캡처 등)"
+      - id: pg_recovery
+        slot: recovery_status
+        text: "지금까지 돌려받은 금액/물건이 있나요? 있다면 얼마/어떤 것인가요?"
+
+templates:
+  complaint_purpose: "피고소인을 사기죄로 엄중 처벌하여 주시기 바랍니다."

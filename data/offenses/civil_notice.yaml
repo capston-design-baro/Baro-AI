@@ -1,0 +1,24 @@
+offense: civil_notice
+title_ko: 내용증명(변제 촉구)
+statute_ref: ""
+elements:
+  - id: loan_fact
+    label: 대여 사실
+    required: true
+    slots:
+      must: ["when", "amount", "to_whom", "evidence"]
+    questions:
+      - {id: lf_when, slot: when, text: "언제 빌려주었나요? (YYYY-MM-DD)"}
+      - {id: lf_amount, slot: amount, text: "얼마를 빌려주었나요?"}
+      - {id: lf_to, slot: to_whom, text: "누구에게 빌려주었나요?"}
+      - {id: lf_ev, slot: evidence, text: "차용증/이체내역 등 증빙이 있나요?"}
+  - id: due_and_notice
+    label: 변제기·독촉
+    required: true
+    slots:
+      must: ["due_date", "prior_notice_count"]
+    questions:
+      - {id: dn_due, slot: due_date, text: "변제기(갚기로 한 날)는 언제였나요?"}
+      - {id: dn_cnt, slot: prior_notice_count, text: "그동안 갚으라고 몇 번 요청했나요? (날짜/방법)"}
+templates:
+  complaint_purpose: "대여금 변제를 촉구하며, 기한 내 미이행 시 법적 조치를 예고합니다."

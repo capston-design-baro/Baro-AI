@@ -1,0 +1,49 @@
+offense: insult
+title_ko: 모욕죄
+statute_ref: "형법 제311조"
+
+includes:
+  - party_info
+
+elements:
+  - id: public_nature
+    label: 공연성
+    required: true
+    slots:
+      must: ["where", "audience_scope", "repeat_or_public"]
+    questions:
+      - id: pub_where
+        slot: where
+        text: "어디에서 있었나요? (단체 카톡방/직장 메신저/공개 게시판 등)"
+      - id: pub_scope
+        slot: audience_scope
+        text: "몇 명 이상이 볼 수 있는 상태였나요? (방 인원/공개 범위)"
+      - id: pub_repeat
+        slot: repeat_or_public
+        text: "여러 번이었나요, 공개적으로 볼 수 있었나요? (예: 다수가 보는 채널에 반복 게시)"
+
+  - id: insulting_expression
+    label: 모욕적 표현
+    required: true
+    slots:
+      must: ["quote", "target", "when"]
+      nice_to_have: ["context", "screenshot"]
+    questions:
+      - id: ins_quote
+        slot: quote
+        text: "어떤 표현을 썼나요? 가능한 한 그대로 적어주세요. (직접 인용)"
+      - id: ins_target
+        slot: target
+        text: "그 표현은 누구를 향했나요? (당신/지칭 표현 등)"
+      - id: ins_when
+        slot: when
+        text: "언제였나요? (YYYY-MM-DD HH:MM)"
+      - id: ins_ctx
+        slot: context
+        text: "그 상황의 맥락이 있나요? (직장/수업/프로젝트 관련 등)"
+      - id: ins_ss
+        slot: screenshot
+        text: "캡처나 링크가 있나요? (자료가 있다면 종류를 적어주세요.)"
+
+templates:
+  complaint_purpose: "피고소인을 모욕죄로 엄중 처벌하여 주시기 바랍니다."
