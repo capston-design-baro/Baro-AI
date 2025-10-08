@@ -1,5 +1,5 @@
 offense: fraud
-title_ko: 사기죄
+title_ko: 사기
 statute_ref: "형법 제347조"
 
 includes:
@@ -15,13 +15,13 @@ elements:
     questions:
       - id: dec_quote
         slot: quote
-        text: "상대가 한 말을 가능하면 그대로 적어주세요. (예: “시세보다 20% 싸게 해줄게”)"
+        text: "상대가 어떻게 당신을 속였나요? 가능한 그대로 말해주세요. (예: “시세보다 20% 싸게 해줄게”)"
       - id: dec_who
         slot: who
-        text: "그 말을 한 사람은 누구인가요? (이름/별칭, 직함/소속을 아는 만큼)"
+        text: "그 말을 한 사람은 누구인가요? (이름/별칭/관계, 직함/소속을 아는 만큼)"
       - id: dec_when
         slot: when
-        text: "그 말은 언제 있었나요? (YYYY-MM-DD HH:MM)"
+        text: "그 말을 언제 했나요? 구체적인 일시를 알려주세요 (YYYY-MM-DD HH:MM)"
       - id: dec_where
         slot: where
         text: "어디에서 있었나요? (예: 서울 강남구 ○○커피숍 / 카톡 대화방)"
