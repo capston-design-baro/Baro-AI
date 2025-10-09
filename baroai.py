@@ -97,7 +97,6 @@ def chat_send(req: ChatMessageRequest):
         }
     }
 
-#임시로 대충 적어놓음 -> 실제 고소장 기반으로 퀄리티 끌어올릴 예정
 @app.post("/chat/compose")
 def chat_compose(req: ComposeRequest):
     s = SESSIONS.get(req.session_id)

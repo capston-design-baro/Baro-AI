@@ -51,6 +51,6 @@ def respond(model: str, system: str, user: str) -> str:
         )
         return _extract_output_text(resp).strip()
     except TypeError:
-        pass
+        return ""
     except Exception:
-        pass
+        return ""

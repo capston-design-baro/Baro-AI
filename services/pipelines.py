@@ -41,6 +41,8 @@ def classify_need_caution(text: str) -> str | None:
         f"[사용자 서술]\n{text}"
     )
     out = respond(settings.OPENAI_MODEL, NEUTRAL_SYSTEM, prompt)
+    if not out:
+        return None
     return (
         "이 사건의 경우 법률 전문가과의 상담을 권장합니다."
         if out.strip().upper() != "NONE"
@@ -81,13 +83,14 @@ def compose_complaint(meta, collected: dict, evidence: list[str]):
     # 2) 실제 작성용 USER 프롬프트
     user = (
         f"{fewshot}\n"
-        f"[죄명] {meta.title_ko} ({meta.statute_ref})\n"
+        #f"[죄명] {meta.title_ko} ({meta.statute_ref})\n"
         f"[사건 요소(JSON)]\n{json.dumps(collected, ensure_ascii=False)}\n\n"
         f"[증거 메모]\n{json.dumps(evidence, ensure_ascii=False)}\n\n"
         "주의:\n"
         "- 항목명('누가/언제/어디서/왜/어떻게')을 노출하지 마십시오.\n"
         "- 조문/항 번호는 검색 또는 예시에 포함된 경우에만 사용하십시오(임의 생성 금지).\n"
         "- 불명확한 부분을 본문에 '□(확인 필요)'로 쓰지 말고, 누락된 요소는 추후 질문 단계에서 보완합니다.\n"
+        "- 명백한 사실이 아닌 사항에 대해 단정적인 어조를 절대 사용하지 마십시오."
     )
     out = respond(settings.OPENAI_MODEL, COMPOSE_SYSTEM, user)
 
