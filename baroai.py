@@ -7,7 +7,7 @@ from typing import Literal, Optional
 from cfg import settings
 from loaders.offense_loader import get_offense_meta
 from services.pipelines import (
-    extract_all,           # 단일 프롬프트 추출 (elements + details)
+    extract_all,           # 단일 프롬프트 추출 
     enforce_elements,      # elements 보수 강제
     enforce_details,       # details 보수 강제
     pick_detail_followup,  # 디테일 우선 질문 선정
@@ -49,7 +49,6 @@ def health():
 
 @app.post("/chat/init")
 def chat_init(req: ChatInitRequest):
-    # 죄목 메타 로드 확인 
     _ = get_offense_meta(req.offense)
 
     sid = str(uuid4())
@@ -63,7 +62,6 @@ def chat_init(req: ChatInitRequest):
         "message": "사건 개요를 최대한 자세히 구체적인 시간 순으로 적어주세요. (언제, 어디서, 누구와, 어떤 일인지)\n고소를 진행하게 된 이유를 포함해주시면 좋습니다."
     }
 
-## --- replace your existing /chat/send with this ---
 @app.post("/chat/send")
 def chat_send(req: ChatMessageRequest):
     s = SESSIONS.get(req.session_id)
@@ -86,7 +84,7 @@ def chat_send(req: ChatMessageRequest):
 
     # 질문 선택
     reply = pick_detail_followup(details, offense) or pick_element_followup(elements, meta) \
-            or "필수 정보가 충족되었습니다. 작성으로 넘어갈 수 있어요."
+            or "필수 정보가 충족되었습니다. 고소장을 작성해드릴게요."
     complete = (reply.startswith("필수 정보가 충족"))
 
     # 중복 질문 방지
