@@ -5,6 +5,5 @@ __pycache__/
 *.py[cod]
 *.hwp
 .hwpx
-baro/
 fraud1.json
 fraud2.json

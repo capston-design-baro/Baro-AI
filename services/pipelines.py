@@ -17,8 +17,11 @@ BASE = Path(__file__).resolve().parents[1]
 PROMPT_DIR = BASE / "out" / "prompts"
 
 # ---------- Config ----------
-USE_BULLET = False
+USE_BULLET = True
 BULLET_TOKEN = "○ "  # 기호 바꾸려면 여기만 수정
+
+DATE_DETAIL_ID = "detail_datetime"
+DATE_SLOT = "date"  # 네 YAML의 slots.must 키 이름과 동일해야 함
 
 NEUTRAL_SYSTEM = (
     "You are an assistant that extracts facts for a legal complaint draft. "
@@ -30,9 +33,9 @@ COMPOSE_SYSTEM = (
     "Produce legal-style paragraphs in Korean."
 )
 
-# 애매 표현 감지
+# 애매 표현
 UNCERTAIN_PAT = re.compile(
-    r"(경|쯤|무렵|대략|정도|언저리|기억\s*안|잘\s*모|불명확|대충|추정)",
+    r"(언저리|기억\s*안|잘\s*모|불명확|대충)",
     re.I,
 )
 
@@ -149,7 +152,6 @@ def enforce_elements(meta, elements: Dict[str, dict], user_text: str) -> Dict[st
         elements[e.id] = rec
     return elements
 
-
 def enforce_details(details: Dict[str, dict], offense: str) -> Dict[str, dict]:
     schema = {d["id"]: d for d in get_detail_schema(offense)}
     for did, rec in (details or {}).items():
@@ -187,6 +189,15 @@ def pick_detail_followup(details: Dict[str, dict], offense: str) -> Optional[str
     for spec in get_detail_schema(offense):
         rec = (details or {}).get(spec["id"], {}) or {}
         slots = rec.get("slots", {}) or {}
+
+        if spec["id"] == DATE_DETAIL_ID:
+            asked_once = bool(rec.get("_date_asked_once"))
+            for s in spec["must"]:
+                if s == DATE_SLOT and slots.get(s) in (None, "missing", "unclear"):
+                    if not asked_once:
+                        _mark_date_asked_once(details)
+                        return spec["questions"].get(s) or f"{spec['label']}의 '{s}' 정보를 알려주세요."
+
         # must
         for s in spec["must"]:
             if slots.get(s) in (None, "missing", "unclear"):
@@ -213,6 +224,14 @@ def pick_element_followup(elements: Dict[str, dict], meta) -> Optional[str]:
                         return q.text
                 return f"{e.label}의 '{slot_name}' 정보를 알려주세요."
     return None
+
+def _mark_date_asked_once(details: Dict[str, dict]):
+    try:
+        rec = details.get(DATE_DETAIL_ID) or {}
+        rec["_date_asked_once"] = True
+        details[DATE_DETAIL_ID] = rec
+    except Exception:
+        pass
 
 # ---------- Backward-compat wrappers (기존 코드 호환) ----------
 def extract_elements(text: str, meta) -> Dict[str, dict]:

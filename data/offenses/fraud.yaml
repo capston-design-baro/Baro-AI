@@ -12,7 +12,7 @@ details:
       must: ["date"]
       nice_to_have: []
     questions:
-      date: "사건 일시가 불분명합니다. 사건의 정확한 날짜와 시각을 다시 한 번 구체적으로 알려주세요. (예: 2025-10-10 22:10)"
+      date: "사건 일시가 모호합니다. 사건의 정확한 날짜와 시각을 다시 한 번 구체적으로 알려주시겠어요? (예: 2025-10-10 22:10)"
 
   - id: detail_place_or_platform
     label: 플랫폼/앱 또는 장소
@@ -27,17 +27,17 @@ details:
       must: ["method"]
       nice_to_have: ["evidence_hint"]
     questions:
-      method: "금전은 어떤 방식으로 건넸나요? (계좌이체/현금/수표/카드/페이/택배대금 등)"
+      method: "금전 거래는 어떤 방식으로 이루어졌나요? (계좌이체/현금/수표/카드/페이/택배대금 등)"
       evidence_hint: "그 방식을 보여줄 증빙(이체내역/영수증/송장 등)이 있나요?"
 
   - id: detail_recipient
-    label: 수취인 식별
+    label: 거래 상대 식별
     slots:
       must: ["recipient_name_or_handle"]
       nice_to_have: ["bank_name"]
     questions:
-      recipient_name_or_handle: "수취인(예금주/닉네임 등) 식별 정보에 대해 아는대로 알려주세요."
-      bank_name: "은행명을 알려주세요."
+      recipient_name_or_handle: "상대방(수취인/지급의무자)을 식별할 수 있는 정보를 알려주세요. (예: 이름/닉네임/상호 등)"
+      bank_name: "계좌주·계좌번호 또는 프로필/계정 링크가 있으면 알려주세요."
 
   - id: detail_amount
     label: 금액/가액
@@ -45,7 +45,7 @@ details:
       must: ["amount_numeric_or_item_value"]
       nice_to_have: []
     questions:
-      amount_numeric_or_item_value: "사기당한 금액(숫자) 또는 물건과 그 가액을 적어주세요. (예: 1,000,000원 / 옷 1개 10만원 상당)"
+      amount_numeric_or_item_value: "사기당한 금액(숫자) 또는 물건과 그 가액을 정확히 적어주세요. (예: 1,000,000원 / 옷 1개 10만원 상당)"
 
 elements:
   - id: deception
@@ -75,15 +75,12 @@ elements:
     label: 처분행위
     required: true
     slots:
-      must: ["what_action","how", "to_whom"]
+      must: ["what_action", "to_whom"]
       nice_to_have: ["contract"]
     questions:
       - id: disp_what
         slot: what_action
         text: "그 말을 믿고 어떤 행동을 했나요? (돈 보냄/물건 전달/계약함 등)"
-      - id: disp_how
-        slot: how
-        text: "어떤 방법이었나요? (계좌이체/현금/수표/택배/전자서명 등)"
       - id: disp_to
         slot: to_whom
         text: "누구에게 건네거나 보냈나요? (이름/계좌주 등, 민감정보는 일부 가려도 됨)"
