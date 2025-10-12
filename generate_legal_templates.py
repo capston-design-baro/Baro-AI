@@ -1,35 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Generate few-shot style templates and a production-ready compose prompt
-for Korean criminal complaint drafts (e.g., 사기죄, 모욕죄).
-
-This script helps you transform ~20 example complaints into:
-  1) Style patterns (with placeholders) extracted from your examples
-  2) A few-shot prompt file per offense that enforces proper legal style
-  3) A helper function snippet you can paste into your codebase
-
-Assumptions about your dataset (choose ONE of the two):
-  A) Directory of JSON files (*.json), each with keys:
-     {
-       "offense": "사기" | "모욕",
-       "facts_text": "...범죄사실 줄글...",
-       "reason_text": "...고소이유 줄글..."
-     }
-
-  B) A CSV file with headers: offense,facts_text,reason_text
-
-Outputs:
-  ./out/templates/{offense}_patterns.txt        # deduplicated style patterns with placeholders
-  ./out/prompts/{offense}_compose_prompt.txt    # few-shot compose prompt ready to use
-  ./out/snippets/{offense}_compose_snippet.py   # drop-in compose() helper (prompt builder)
-
-Usage examples:
-  python generate_legal_templates.py --json_dir data/scam_json
-  python generate_legal_templates.py --csv data/complaints.csv
-
-No external dependencies; standard library only.
-"""
 import argparse
 import csv
 import json
