@@ -12,7 +12,7 @@ details:
       must: ["date"]
       nice_to_have: []
     questions:
-      date: "사건 일시가 모호합니다. 사건의 정확한 날짜와 시각을 다시 한 번 구체적으로 알려주시겠어요? (예: 2025-10-10 22:10)"
+      date: "사건의 정확한 날짜와 시각을 다시 한 번 구체적으로 알려주시겠어요? (예: 2025-10-10 22:10)"
 
   - id: detail_place_or_platform
     label: 플랫폼/앱 또는 장소
@@ -25,10 +25,9 @@ details:
     label: 금전 처분 방식
     slots:
       must: ["method"]
-      nice_to_have: ["evidence_hint"]
+      nice_to_have: []
     questions:
       method: "금전 거래는 어떤 방식으로 이루어졌나요? (계좌이체/현금/수표/카드/페이/택배대금 등)"
-      evidence_hint: "그 방식을 보여줄 증빙(이체내역/영수증/송장 등)이 있나요?"
 
   - id: detail_recipient
     label: 거래 상대 식별
