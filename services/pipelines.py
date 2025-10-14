@@ -233,7 +233,7 @@ def _mark_date_asked_once(details: Dict[str, dict]):
     except Exception:
         pass
 
-# ---------- Backward-compat wrappers (기존 코드 호환) ----------
+# ---------- Backward-compat wrappers ----------
 def extract_elements(text: str, meta) -> Dict[str, dict]:
     """
     (호환용) elements만 반환. 내부적으로 단일 프롬프트를 사용하여 elements를 강제 보수화 후 리턴.

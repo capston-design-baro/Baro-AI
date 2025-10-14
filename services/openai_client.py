@@ -42,15 +42,14 @@ def respond(model: str, system: str, user: str) -> str:
     c = client()
 
     try:
-        resp = c.responses.create(
+        resp = c.chat.completions.create(
             model=model,
-            input=[
+            messages=[
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
         )
         return _extract_output_text(resp).strip()
-    except TypeError:
-        return ""
-    except Exception:
+    except Exception as e:
+        print(f"Error during OpenAI API call: {e}")
         return ""
