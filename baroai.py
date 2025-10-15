@@ -113,6 +113,6 @@ def chat_compose(req: ComposeRequest):
         raise HTTPException(404, "세션을 찾을 수 없습니다. /chat/init 먼저 호출하세요.")
     meta = get_offense_meta(s["offense"])
 
-    draft = compose_complaint(meta=meta, collected=s.get("collected", {}), evidence=[])
+    draft = compose_complaint(meta=meta, collected=s.get("collected", "details"), evidence=[])
     print(draft.get("draft")) #확인용
     return draft

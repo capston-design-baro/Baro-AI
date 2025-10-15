@@ -170,7 +170,7 @@ def enforce_details(details: Dict[str, dict], offense: str) -> Dict[str, dict]:
     return details
 
 # ---------- Follow-up Question Pickers ----------
-def _user_window(history: list[dict], max_chars: int = 1500) -> str:
+def _user_window(history: list[dict], max_chars: int = 2500) -> str:
     """최근 사용자 메시지부터 거꾸로 합쳐 max_chars를 넘지 않게 만든 윈도우."""
     buf = []
     used = 0
@@ -263,21 +263,41 @@ def generate_followup(extracted: Dict[str, dict], meta) -> Optional[dict]:
 
 # ---------- Compose (작성 전용) ----------
 def compose_complaint(meta, collected: dict, evidence: List[str]):
+    # --- normalize collected ---
+    if not isinstance(collected, dict):
+        collected = {}
+    els = collected.get("elements")
+    det = collected.get("details")
+    # 구버전 호환: elements 키가 없고 디테일도 없으면 전체를 elements로 간주
+    if els is None and det is None:
+        els = collected
+        det = {}
+    if els is None: els = {}
+    if det is None: det = {}
+
+    # few-shot 불러오기
     fewshot = load_fewshot_prompt(meta.title_ko)
+
+    # compose 프롬프트 (details를 별도 블록으로 반드시 전달)
     user = (
         f"{fewshot}\n"
-        f"[사건 요소(JSON)]\n{json.dumps(collected, ensure_ascii=False)}\n\n"
-        f"[증거 메모]\n{json.dumps(evidence, ensure_ascii=False)}\n\n"
+        f"[사건 요소(JSON)]\n{json.dumps(els, ensure_ascii=False)}\n\n"
+        f"[사건 디테일(JSON)]\n{json.dumps(det, ensure_ascii=False)}\n\n"
+        f"[증거 메모]\n{json.dumps(evidence or [], ensure_ascii=False)}\n\n"
         "주의:\n"
         "- 항목명('누가/언제/어디서/왜/어떻게')을 노출하지 마십시오.\n"
         "- 조문/항 번호는 검색 또는 예시에 포함된 경우에만 사용하십시오(임의 생성 금지).\n"
         "- 불명확/누락 정보는 본문에 표기하지 않습니다.\n"
-        #"- 불명확한 부분은 '□(확인 필요)'로 표기하십시오."
         "- 명백한 사실이 아닌 사항에 대해 단정적인 어조를 절대 사용하지 마십시오.\n"
+        "- **'사건 디테일(JSON)'의 일시(날짜/시간/범위), 장소/플랫폼, 금액, 이체 방식 등의 정보를 서술에 반드시 반영하십시오.**\n"
+        "- 날짜는 가능하면 'YYYY. M. D.' 형식으로 기재하십시오(예: 2024. 5. 18.).\n"
     )
+
     out = respond(settings.OPENAI_COMPOSE_MODEL, COMPOSE_SYSTEM, user)
     draft = postprocess_complaint(out)
     return {"offense": meta.offense, "title": meta.title_ko, "draft": draft}
+
+
 
 def postprocess_complaint(text: str) -> str:
     """
