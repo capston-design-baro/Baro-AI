@@ -16,16 +16,17 @@ from services.openai_client import respond
 
 @dataclass
 class RetrievedDoc:
-    kind: str       
+    kind: str  # "statute" | "case"
     id: str
     title: str
     snippet: str
     url: str
+    meta: Dict[str, Any]
 
 
 BASE = Path(__file__).resolve().parents[1]
 OFFENSE_DIR = BASE / "data" / "offenses"
-DEFAULT_LAW_BASE = "https://www.law.go.kr/DRF"
+DEFAULT_LAW_BASE = "https://www.law.go.kr"
 
 
 def list_offense_defs() -> List[Dict[str, str]]:
@@ -34,7 +35,7 @@ def list_offense_defs() -> List[Dict[str, str]]:
     out: List[Dict[str, str]] = []
     for p in sorted(OFFENSE_DIR.glob("*.yaml")):
         try:
-            import yaml  # local import to avoid unused dep when not needed
+            import yaml  # deferred import
 
             doc = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
             key = str(doc.get("offense") or p.stem)
@@ -47,17 +48,21 @@ def list_offense_defs() -> List[Dict[str, str]]:
 
 
 class LawRetriever:
-    #Lightweight client for https://www.law.go.kr/DRF (국가법령정보센터) Open API.
-    
-    STATUTE_TITLE_KEYS = ["법령명한글", "법령명", "법령한글명", "lawname", "title"]
-    STATUTE_SNIPPET_KEYS = ["조문내용", "조문", "내용", "content", "제목"]
-    STATUTE_URL_KEYS = ["법령링크", "법령url", "lawurl", "url", "link"]
-    STATUTE_ID_KEYS = ["법령id", "법령일련번호", "lawid", "법령번호"]
+    """Lightweight client for 법제처 DRF OpenAPI (https://www.law.go.kr/DRF)."""
 
-    CASE_TITLE_KEYS = ["판례명", "사건명", "precname", "title"]
-    CASE_SNIPPET_KEYS = ["판시사항", "판결요지", "요지", "요약", "content"]
-    CASE_ID_KEYS = ["사건번호", "판례일련번호", "precid", "precedentseq", "id"]
-    CASE_URL_KEYS = ["판례링크", "판례본문url", "판례url", "url", "link"]
+    STATUTE_TITLE_KEYS = ["법령명한글", "법령명", "법령한글명", "lawname", "lawName", "title"]
+    STATUTE_SNIPPET_KEYS = ["조문내용", "조문", "내용", "content", "제목"]
+    STATUTE_URL_KEYS = ["법령링크", "법령URL", "lawurl", "lawUrl", "url", "link"]
+    STATUTE_ID_KEYS = ["법령ID", "법령id", "법령일련번호", "lawid", "lawId", "법령번호"]
+
+    CASE_TITLE_KEYS = ["판례명", "사건명", "precname", "caseName", "title"]
+    CASE_SNIPPET_KEYS = ["판시사항", "판결요지", "요지", "요약", "content", "본문"]
+    CASE_ID_KEYS = ["사건번호", "판례일련번호", "precid", "precId", "precedentseq", "id"]
+    CASE_URL_KEYS = ["판례상세링크", "판례본문url", "판례url", "url", "link"]
+    CASE_CHARGE_KEYS = ["사건명", "판례명", "precname", "caseName"]
+    CASE_STATUTE_KEYS = ["참조법령명", "관련법령", "법조", "법령명", "lawname", "lawName"]
+    CASE_COURT_KEYS = ["법원명", "courtName", "법원"]
+    CASE_NO_KEYS = ["사건번호", "caseNo"]
 
     def __init__(
         self,
@@ -73,19 +78,17 @@ class LawRetriever:
 
     # ----- public API -----
     def search_cases(self, query: str, limit: int = 3) -> List[RetrievedDoc]:
-        #검색 질의에 해당하는 판례 조회
-
         if not self._enabled():
             return []
         try:
             data = self._request(
-                "precSearch.do",
+                "lawSearch.do",
                 {
                     "OC": self.key,
                     "target": "prec",
                     "type": "JSON",
                     "query": query,
-                    "display": max(1, min(20, limit * 2)),  # 필터링 여유분 확보
+                    "display": max(1, min(100, limit * 3)),
                     "page": 1,
                 },
             )
@@ -94,8 +97,6 @@ class LawRetriever:
         return self._parse_cases(data, limit)
 
     def search_statutes(self, query: str, limit: int = 3) -> List[RetrievedDoc]:
-        #검색 질의에 해당하는 법령 조회
-
         if not self._enabled():
             return []
         try:
@@ -106,7 +107,7 @@ class LawRetriever:
                     "target": "law",
                     "type": "JSON",
                     "query": query,
-                    "display": max(1, min(20, limit * 2)),
+                    "display": max(1, min(100, limit * 3)),
                     "page": 1,
                 },
             )
@@ -119,7 +120,7 @@ class LawRetriever:
         return bool(self.base and self.key)
 
     def _request(self, endpoint: str, params: Dict[str, Any]) -> Any:
-        url = f"{self.base}/{endpoint.lstrip('/')}"
+        url = self._build_url(endpoint)
         resp: Response = self.session.get(url, params=params, timeout=self.timeout)
         resp.raise_for_status()
         try:
@@ -127,6 +128,13 @@ class LawRetriever:
         except ValueError:
             pass
         return self._xml_to_dict(resp.text)
+
+    def _build_url(self, endpoint: str) -> str:
+        endpoint = endpoint.lstrip("/")
+        base = self.base.rstrip("/")
+        if base.lower().endswith("/drf"):
+            return f"{base}/{endpoint}"
+        return f"{base}/DRF/{endpoint}"
 
     def _xml_to_dict(self, xml_text: str) -> Dict[str, Any]:
         try:
@@ -164,6 +172,33 @@ class LawRetriever:
             elif isinstance(cur, dict):
                 queue.extend(cur.values())
 
+    @staticmethod
+    def _to_text(value: Any) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value.strip()
+        if isinstance(value, (int, float)):
+            return str(value)
+        return ""
+
+    @staticmethod
+    def _normalize_key(key: str) -> str:
+        return re.sub(r"[^0-9a-zA-Z가-힣]", "", str(key or "")).lower()
+
+    def _pick_value(self, entry: Dict[str, Any], key_candidates: List[str]) -> str:
+        targets = [self._normalize_key(k) for k in key_candidates]
+        for candidate in targets:
+            if not candidate:
+                continue
+            for actual_key, actual_val in entry.items():
+                norm_actual = self._normalize_key(actual_key)
+                if norm_actual == candidate or (candidate and candidate in norm_actual):
+                    val = self._to_text(actual_val)
+                    if val:
+                        return val
+        return ""
+
     def _flatten(self, entry: Any) -> Dict[str, Any]:
         flat: Dict[str, Any] = {}
         stack: List[Any] = [entry]
@@ -186,35 +221,6 @@ class LawRetriever:
                         stack.append(value)
         return flat
 
-    @staticmethod
-    def _to_text(value: Any) -> str:
-        if value is None:
-            return ""
-        if isinstance(value, str):
-            return value.strip()
-        if isinstance(value, (int, float)):
-            return str(value)
-        return ""
-
-    @staticmethod
-    def _normalize_key(key: str) -> str:
-        return re.sub(r"[^0-9a-zA-Z가-힣]", "", str(key or "")).lower()
-
-    def _pick_value(self, entry: Dict[str, Any], key_candidates: List[str]) -> str:
-        targets = [self._normalize_key(k) for k in key_candidates]
-        for candidate in targets:
-            if not candidate:
-                continue
-            for actual_key, actual_val in entry.items():
-                norm_actual = self._normalize_key(actual_key)
-                if not norm_actual:
-                    continue
-                if norm_actual == candidate or candidate in norm_actual:
-                    val = self._to_text(actual_val)
-                    if val:
-                        return val
-        return ""
-
     def _parse_statutes(self, payload: Any, limit: int) -> List[RetrievedDoc]:
         docs: List[RetrievedDoc] = []
         for block in self._iter_dict_lists(payload):
@@ -233,6 +239,7 @@ class LawRetriever:
                         title=title or doc_id,
                         snippet=snippet or "",
                         url=url or "",
+                        meta={"raw": flat},
                     )
                 )
                 if len(docs) >= limit:
@@ -250,6 +257,12 @@ class LawRetriever:
                     continue
                 doc_id = self._pick_value(flat, self.CASE_ID_KEYS) or title or "case"
                 url = self._pick_value(flat, self.CASE_URL_KEYS)
+                meta = {
+                    "charge": self._pick_value(flat, self.CASE_CHARGE_KEYS) or title,
+                    "statute": self._pick_value(flat, self.CASE_STATUTE_KEYS),
+                    "court": self._pick_value(flat, self.CASE_COURT_KEYS),
+                    "case_no": self._pick_value(flat, self.CASE_NO_KEYS),
+                }
                 docs.append(
                     RetrievedDoc(
                         kind="case",
@@ -257,6 +270,7 @@ class LawRetriever:
                         title=title or doc_id,
                         snippet=snippet or "",
                         url=url or "",
+                        meta=meta,
                     )
                 )
                 if len(docs) >= limit:
@@ -264,7 +278,6 @@ class LawRetriever:
         return docs
 
 
-# Classification with RAG context
 CLASSIFY_SYS = (
     "You are a Korean legal assistant that classifies an input narrative "
     "into one of the supported offenses. Use only the provided context; "
@@ -302,9 +315,50 @@ def _build_offense_choices(offenses: List[Dict[str, str]]) -> str:
     return "\n".join(lines)
 
 
-def _fallback_keyword_classifier(text: str, offenses: List[Dict[str, str]]) -> Tuple[str, List[Tuple[str, float, str]]]:
-    """Very rough keyword-based classifier for offline fallback."""
+def summarize_case_stats(cases: List[RetrievedDoc], top_n: int = 5) -> List[Dict[str, Any]]:
+    summary: Dict[str, Dict[str, Any]] = {}
+    for doc in cases:
+        charge = (doc.meta.get("charge") if doc.meta else None) or doc.title
+        charge = (charge or "").strip()
+        if not charge:
+            continue
+        entry = summary.setdefault(
+            charge,
+            {"charge": charge, "count": 0, "statutes": set(), "samples": []},
+        )
+        entry["count"] += 1
+        statute = (doc.meta or {}).get("statute")
+        if statute:
+            entry["statutes"].add(statute)
+        if len(entry["samples"]) < 3:
+            entry["samples"].append({"title": doc.title, "url": doc.url})
 
+    ranked = sorted(summary.values(), key=lambda x: x["count"], reverse=True)
+    out: List[Dict[str, Any]] = []
+    for item in ranked[:top_n]:
+        out.append(
+            {
+                "charge": item["charge"],
+                "count": item["count"],
+                "statutes": sorted(item["statutes"]),
+                "samples": item["samples"],
+            }
+        )
+    return out
+
+
+def _format_case_stats(case_stats: List[Dict[str, Any]]) -> str:
+    if not case_stats:
+        return ""
+    lines = ["[판례 기반 실시간 후보]"]
+    for stat in case_stats:
+        law = f" (관련 법령: {', '.join(stat['statutes'])})" if stat["statutes"] else ""
+        lines.append(f"- {stat['charge']} : {stat['count']}건{law}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _fallback_keyword_classifier(text: str, offenses: List[Dict[str, str]]) -> Tuple[str, List[Tuple[str, float, str]]]:
     t = (text or "").lower()
     scores: Dict[str, float] = {o["key"]: 0.0 for o in offenses}
 
@@ -331,24 +385,31 @@ def classify_offense_with_rag(
     retriever: Optional[LawRetriever] = None,
     top_k: int = 3,
 ) -> Dict[str, Any]:
-    """Classify offense key using retrieved statutes + cases as context."""
-
     offenses = list_offense_defs()
     if not offenses:
-        return {"prediction": "", "candidates": [], "retrieval": {"statutes": [], "cases": []}}
+        return {
+            "prediction": "",
+            "candidates": [],
+            "retrieval": {"statutes": [], "cases": []},
+            "case_stats": [],
+        }
 
     retriever = retriever or LawRetriever()
 
     statutes = retriever.search_statutes(user_text, limit=top_k) if retriever else []
-    cases = retriever.search_cases(user_text, limit=top_k) if retriever else []
+    cases = retriever.search_cases(user_text, limit=top_k * 2) if retriever else []
+    case_stats = summarize_case_stats(cases, top_n=8)
 
     context = _build_context_block(user_text, statutes, cases)
     choices = _build_offense_choices(offenses)
+    case_hint = _format_case_stats(case_stats)
 
     prompt = (
         "아래 사용자 서술과 검색된 법령/판례 요약을 참고하여, 제공된 죄명 목록 중 가장 적합한 죄명을 선택하십시오.\n"
-        "근거를 간단히 한국어로 설명하고, 신뢰도(confidence, 0.0~1.0)를 추정하십시오.\n\n"
-        f"{choices}\n\n"
+        "근거를 간단히 한국어로 설명하고, 신뢰도(confidence, 0.0~1.0)를 추정하십시오.\n"
+        "판례 기반 후보 통계는 참고용입니다.\n\n"
+        f"{choices}\n"
+        f"{case_hint}"
         f"{context}\n"
     )
 
@@ -382,6 +443,7 @@ def classify_offense_with_rag(
     return {
         "prediction": prediction,
         "candidates": norm_cands[:3],
+        "case_stats": case_stats,
         "retrieval": {
             "statutes": [d.__dict__ for d in statutes],
             "cases": [d.__dict__ for d in cases],
