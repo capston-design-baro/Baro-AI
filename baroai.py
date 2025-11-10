@@ -16,6 +16,7 @@ from services.pipelines import (
     _user_window,
     compose_complaint
 )
+from services.legal_rag import classify_offense_with_rag, LawRetriever
 app = FastAPI(title="BARO-AI: Complaint Draft API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
@@ -42,6 +43,10 @@ class ChatInitRequest(BaseModel):
 class ChatMessageRequest(BaseModel):
     session_id: str
     message: str
+
+class ClassifyRequest(BaseModel):
+    text: str
+    top_k: int | None = 3
 
 @app.get("/")
 def health():
