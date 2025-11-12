@@ -290,12 +290,13 @@ def compose_complaint(meta, collected: dict, evidence: List[str]):
         f"[사건 디테일(JSON)]\n{json.dumps(det, ensure_ascii=False)}\n\n"
         f"[증거 메모]\n{json.dumps(evidence or [], ensure_ascii=False)}\n\n"
         "주의:\n"
-        "- 항목명('누가/언제/어디서/왜/어떻게')을 노출하지 마십시오.\n"
+        "- detail_item_or_service.goods_or_service 값이 present라면 브랜드/모델/서비스 명칭을 그대로 서술에 반영하고 '물품'과 같은 모호한 표현을 피하십시오.\n"
         "- 조문/항 번호는 검색 또는 예시에 포함된 경우에만 사용하십시오(임의 생성 금지).\n"
         "- 불명확/누락 정보는 본문에 표기하지 않습니다.\n"
         "- 명백한 사실이 아닌 사항에 대해 단정적인 어조를 절대 사용하지 마십시오.\n"
-        "- **'사건 디테일(JSON)'의 일시(날짜/시간/범위), 장소/플랫폼, 금액, 이체 방식 등의 정보를 서술에 반드시 반영하십시오.**\n"
+        "- **'사건 디테일(JSON)'의 일시(날짜/시간/범위), 주소/플랫폼, 금액, 이체 방식, 브랜드/모델/서비스 명칭 등의 정보를 서술에 반드시 반영하십시오.**\n"
         "- 날짜는 가능하면 'YYYY. M. D.' 형식으로 기재하십시오(예: 2024. 5. 18.).\n"
+        "- 어떤 물품을 구입/이용했는지 알 수 있는 경우, 물품명과 브랜드/모델/서비스 명칭을 반드시 기재하십시오.\n"
     )
 
     out = respond(settings.OPENAI_COMPOSE_MODEL, COMPOSE_SYSTEM, user)
@@ -310,11 +311,6 @@ def compose_complaint(meta, collected: dict, evidence: List[str]):
 
 
 def postprocess_complaint(text: str) -> str:
-    """
-    출력 후속 정리:
-    - 불필요한 불릿/헤더 토큰 제거 또는 변환
-    - 과도한 개행 정리
-    """
     t = (text or "").strip()
 
     # 섹션 라벨(유지/정리용)
