@@ -33,6 +33,11 @@ COMPOSE_SYSTEM = (
     "Produce legal-style paragraphs in Korean."
 )
 
+SECTION_NAME_TO_KEY = {
+    "범죄사실": "criminal_facts",
+    "고소이유": "accusation_reason",
+}
+
 # 애매 표현
 UNCERTAIN_PAT = re.compile(
     r"(언저리|기억\s*안|잘\s*모|불명확|대충)",
@@ -295,7 +300,12 @@ def compose_complaint(meta, collected: dict, evidence: List[str]):
 
     out = respond(settings.OPENAI_COMPOSE_MODEL, COMPOSE_SYSTEM, user)
     draft = postprocess_complaint(out)
-    return {"offense": meta.offense, "title": meta.title_ko, "draft": draft}
+    sections = split_complaint_sections(draft)
+    return {
+        "offense": meta.offense,
+        "title": meta.title_ko,
+        "sections": sections,
+    }
 
 
 
@@ -322,6 +332,51 @@ def postprocess_complaint(text: str) -> str:
     # 과도한 개행 정리
     t = re.sub(r"\n{3,}", "\n\n", t)
     return t
+
+
+def split_complaint_sections(text: str) -> Dict[str, str]:
+
+    sections = {mapped: "" for mapped in SECTION_NAME_TO_KEY.values()}
+    raw_sections = {name: "" for name in SECTION_NAME_TO_KEY}
+
+    current = None
+    buffer: List[str] = []
+    for line in (text or "").splitlines():
+        header = _match_section_header(line)
+        if header:
+            if current is not None:
+                raw_sections[current] = "\n".join(buffer).strip()
+            current = header
+            buffer = []
+            continue
+        if current is not None:
+            buffer.append(line)
+    if current is not None:
+        raw_sections[current] = "\n".join(buffer).strip()
+
+    normalized = (text or "").strip()
+    if not any(raw_sections.values()) and normalized:
+        reason_idx = normalized.find("고소이유")
+        if reason_idx != -1:
+            raw_sections["범죄사실"] = normalized[:reason_idx].strip()
+            raw_sections["고소이유"] = normalized[reason_idx + len("고소이유"):].lstrip(" :=\n")
+        else:
+            raw_sections["범죄사실"] = normalized
+
+    for name, key in SECTION_NAME_TO_KEY.items():
+        sections[key] = raw_sections.get(name, "").strip()
+    return sections
+
+
+def _match_section_header(line: str) -> Optional[str]:
+    if not line:
+        return None
+    stripped = line.strip()
+    stripped = stripped.strip("[]")
+    stripped = stripped.strip(":：")
+    stripped = stripped.strip("=")
+    stripped = re.sub(r"^[\-\*\d\.\)\(]+", "", stripped).strip()
+    return stripped if stripped in SECTION_NAME_TO_KEY else None
 
 def _normalize_slots(slots_obj):
     if slots_obj is None:
