@@ -16,7 +16,6 @@ from services.pipelines import (
     _user_window,
     compose_complaint
 )
-from services.legal_rag import classify_offense_with_rag, LawRetriever
 app = FastAPI(title="BARO-AI: Complaint Draft API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
