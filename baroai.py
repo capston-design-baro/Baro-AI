@@ -83,7 +83,10 @@ def chat_send(req: ChatMessageRequest):
     elements = enforce_elements(meta, parsed.get("elements", {}), user_text)
     details  = enforce_details(parsed.get("details", {}), offense)
 
-    s["collected"] = elements
+    s["collected"] = {
+        "elements": elements,
+        "details": details,
+    }
     s["details"]   = details
 
     # 질문 선택
@@ -117,5 +120,5 @@ def chat_compose(req: ComposeRequest):
         raise HTTPException(404, "세션을 찾을 수 없습니다. /chat/init 먼저 호출하세요.")
     meta = get_offense_meta(s["offense"])
 
-    sections_payload = compose_complaint(meta=meta, collected=s.get("collected", "details"), evidence=[])
+    sections_payload = compose_complaint(meta=meta, collected=s.get("collected", {}), evidence=[])
     return sections_payload
