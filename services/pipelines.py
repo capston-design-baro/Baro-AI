@@ -99,7 +99,7 @@ def _build_single_prompt(user_text: str, meta, offense: str) -> str:
         '      "status": "satisfied|missing|unclear",\n'
         '      "slots": {"<slot>": "present|missing|unclear", ...},\n'
         '      "evidence": "<짧은 인용 또는 빈 문자열>",\n'
-        '      "summary": "1~2문장 요약"\n'
+        '      "summary": "경어체로 1~2문장 요약"\n'
         "    }, ...\n"
         "  },\n"
         '  "details": {\n'
@@ -107,7 +107,7 @@ def _build_single_prompt(user_text: str, meta, offense: str) -> str:
         '      "status": "satisfied|missing|unclear",\n'
         '      "slots": {"<slot>": "present|missing|unclear", ...},\n'
         '      "evidence": "<짧은 인용 또는 빈 문자열>",\n'
-        '      "summary": "1~2문장 요약"\n'
+        '      "summary": "경어체로 1~2문장 요약"\n'
         "    }, ...\n"
         "  }\n"
         "}\n\n"
@@ -201,17 +201,20 @@ def pick_detail_followup(details: Dict[str, dict], offense: str) -> Optional[str
                 if s == DATE_SLOT and slots.get(s) in (None, "missing", "unclear"):
                     if not asked_once:
                         _mark_date_asked_once(details)
-                        return spec["questions"].get(s) or f"{spec['label']}의 '{s}' 정보를 알려주세요."
+                        question = spec["questions"].get(s) or f"{spec['label']}의 '{s}' 정보를 알려주세요."
+                        return _question_with_reason(question, spec["label"], rec)
 
         # must
         for s in spec["must"]:
             if slots.get(s) in (None, "missing", "unclear"):
-                return spec["questions"].get(s) or f"{spec['label']}의 '{s}' 정보를 알려주세요."
+                question = spec["questions"].get(s) or f"{spec['label']}의 '{s}' 정보를 알려주세요."
+                return _question_with_reason(question, spec["label"], rec)
         # nice_to_have
         if all(slots.get(s) == "present" for s in spec["must"]):
             for s in spec["nice"]:
                 if slots.get(s) in (None, "missing", "unclear"):
-                    return spec["questions"].get(s) or f"{spec['label']}의 '{s}' 정보를 알려주세요."
+                    question = spec["questions"].get(s) or f"{spec['label']}의 '{s}' 정보를 알려주세요."
+                    return _question_with_reason(question, spec["label"], rec)
     return None
 
 def pick_element_followup(elements: Dict[str, dict], meta) -> Optional[str]:
@@ -226,8 +229,9 @@ def pick_element_followup(elements: Dict[str, dict], meta) -> Optional[str]:
                 # 해당 슬롯 질문 찾기
                 for q in getattr(e, "questions", []) or []:
                     if getattr(q, "slot", None) == slot_name:
-                        return q.text
-                return f"{e.label}의 '{slot_name}' 정보를 알려주세요."
+                        return _question_with_reason(q.text, e.label, rec)
+                fallback = f"{e.label}의 '{slot_name}' 정보를 알려주세요."
+                return _question_with_reason(fallback, e.label, rec)
     return None
 
 def _mark_date_asked_once(details: Dict[str, dict]):
@@ -396,3 +400,8 @@ def _normalize_slots(slots_obj):
         "must": list(must or []),
         "nice_to_have": list(nice or []),
     }
+def _question_with_reason(question: str, label: str, record: Dict[str, Any]) -> str:
+    summary = (record or {}).get("summary")
+    if isinstance(summary, str):
+        summary = summary.strip()
+    return f"{summary}\n{question}"
