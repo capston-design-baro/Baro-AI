@@ -10,3 +10,4 @@ fraud2.json
 *jsonl
 *.bin
 *.pickle
+*.sqlite3
