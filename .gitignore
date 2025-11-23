@@ -7,3 +7,6 @@ __pycache__/
 .hwpx
 fraud1.json
 fraud2.json
+*jsonl
+*.bin
+*.pickle
