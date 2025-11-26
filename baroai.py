@@ -16,18 +16,15 @@ from services.pipelines import (
     _user_window,
     compose_complaint
 )
+from services.rag import run_rag_preview, map_keyword_to_offense 
+
 app = FastAPI(title="BARO-AI: Complaint Draft API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
 )
 
-# 메모리 세션 저장소
 SESSIONS: dict[str, dict] = {} 
-
-class StartRequest(BaseModel):
-    offense: Literal["fraud", "insult"]
-    text: str
 
 class FollowupRequest(BaseModel):
     offense: Literal["fraud", "insult"]
@@ -37,34 +34,39 @@ class ComposeRequest(BaseModel):
     session_id: str
 
 class ChatInitRequest(BaseModel):
-    offense: Literal["fraud", "insult"]
+    text: str
 
 class ChatMessageRequest(BaseModel):
     session_id: str
     message: str
-
-class ClassifyRequest(BaseModel):
-    text: str
-    top_k: int | None = 3
 
 @app.get("/")
 def health():
     return {"ok": True, "service": app.title, "model": settings.OPENAI_CHAT_MODEL}
 
 @app.post("/chat/init")
-def chat_init(req: ChatInitRequest):
-    _ = get_offense_meta(req.offense)
+def chat_init(req: ChatInitRequest):  
+    rag = run_rag_preview(req.text, k=2)
+    rag_keyword = rag["keyword"]
+    rag_cases = rag["cases"]          # {case_no, label, text}
+
+    offense = map_keyword_to_offense(rag_keyword)
 
     sid = str(uuid4())
     SESSIONS[sid] = {
-        "offense": req.offense,
+        "offense": offense,
         "history": [],
         "collected": {},
+        "rag_keyword": rag_keyword,
     }
+
     return {
         "session_id": sid,
-        "message": "사건 개요를 최대한 자세히 구체적인 시간 순으로 적어주세요. (언제, 어디서, 누구와, 어떤 일인지)\n고소를 진행하게 된 이유를 포함해주시면 좋습니다."
+        "offense": offense,
+        "rag_keyword": rag_keyword, #str
+        "rag_cases": rag_cases, #list[dict] {case_no, label, text}
     }
+
 
 @app.post("/chat/send")
 def chat_send(req: ChatMessageRequest):
@@ -76,7 +78,7 @@ def chat_send(req: ChatMessageRequest):
     meta = get_offense_meta(offense)
 
     s["history"].append({"role": "user", "content": req.message})
-    user_text = _user_window(s["history"], max_chars=1800)  # ✅ 윈도우만 전송
+    user_text = _user_window(s["history"], max_chars=1800) 
 
     # LLM 호출
     parsed = extract_all(user_text, offense)
