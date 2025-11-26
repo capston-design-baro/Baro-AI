@@ -3,22 +3,23 @@ import chromadb
 from chromadb.utils import embedding_functions
 from tqdm import tqdm
 from cfg import settings
+from pathlib import Path
 
 INPUT_FILE = 'prec_labeled_final.jsonl'
-DB_PATH = "./legal_db"
+BASE = Path(__file__).resolve().parents[1]  
+DB_PATH = BASE / "data" / "rag_db"        
 COLLECTION_NAME = "criminal_cases"
 OPENAI_API_KEY = settings.OPENAI_API_KEY
 # 글자 수 제한 설정
 MAX_CHARS = 5000
 
-# 2. ChromaDB 초기화
+# ChromaDB 초기화
 client = chromadb.PersistentClient(path=DB_PATH)
 openai_ef = embedding_functions.OpenAIEmbeddingFunction(
     api_key=OPENAI_API_KEY,
     model_name="text-embedding-3-small"
 )
 
-# 기존 컬렉션이 있으면 삭제
 try:
     client.delete_collection(COLLECTION_NAME)
 except:
@@ -29,8 +30,7 @@ collection = client.get_or_create_collection(
     embedding_function=openai_ef
 )
 
-
-# 3. 데이터 로드 및 배치 처리
+# 데이터 로드 및 배치 처리
 BATCH_SIZE = 100
 documents = [] 
 metadatas = [] 

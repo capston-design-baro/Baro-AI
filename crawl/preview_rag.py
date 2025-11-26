@@ -1,15 +1,17 @@
+from pathlib import Path
 import chromadb
 from chromadb.utils import embedding_functions
 from openai import OpenAI
 from cfg import settings
 
+BASE = Path(__file__).resolve().parents[1] 
 OPENAI_API_KEY = settings.OPENAI_API_KEY
-DB_PATH = "./legal_db"
+DB_PATH = BASE / "data" / "rag_db"  
 COLLECTION_NAME = "criminal_cases"
 LLM_MODEL = "gpt-5" 
 
 # 설정 및 연결
-chroma_client = chromadb.PersistentClient(path=DB_PATH)
+chroma_client = chromadb.PersistentClient(path=str(DB_PATH))
 openai_ef = embedding_functions.OpenAIEmbeddingFunction(
     api_key=OPENAI_API_KEY,
     model_name="text-embedding-3-small"
@@ -36,8 +38,8 @@ def load_offense_names(csv_path):
     return offense_names
 
 # 사용 예시
-CSV_PATH = "crime_mapping_worklist.csv" 
-MAJOR_OFFENSES = load_offense_names(CSV_PATH)
+CSV_PATH = BASE / "data" / "crime_mapping_worklist.csv"
+MAJOR_OFFENSES = load_offense_names(str(CSV_PATH))
 
 # 범죄 유형 먼저 판단하기
 OFFENSE_LIST_STR = ", ".join(MAJOR_OFFENSES)
@@ -167,9 +169,11 @@ def main():
         
         # 1. 키워드 예측
         predicted_keyword = predict_crime_keyword(user_input)
+        print("   -> AI기반 범죄 키워드 예측중\n")
         
         # 2. 필터링 검색
         similar_cases = search_similar_cases_filtered(user_input, predicted_keyword, k=2) # 2개만 보여주기
+        print("   -> 필터링 검색중\n")
         
         if not similar_cases:
             print("   -> 유사한 판례를 찾지 못했습니다.")
