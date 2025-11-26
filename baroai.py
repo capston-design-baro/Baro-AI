@@ -55,9 +55,13 @@ def chat_init(req: ChatInitRequest):
     sid = str(uuid4())
     SESSIONS[sid] = {
         "offense": offense,
-        "history": [],
+        "history": [
+            {"role": "user", "content": req.text},
+        ],
         "collected": {},
         "rag_keyword": rag_keyword,
+        # 필요하면 여기 rag_cases도 넣을 수 있음:
+        # "rag_cases": rag_cases,
     }
 
     return {
