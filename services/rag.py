@@ -74,10 +74,7 @@ def predict_crime_keyword(user_query: str) -> str:
 
 
 # 벡터 검색 + 키워드 필터
-def search_similar_cases_filtered(
-    query_text: str, keyword: str, k: int = 3
-) -> list[dict]:
-    """Chroma에서 유사 판례를 가져오고, label 안에 keyword가 들어간 것만 필터."""
+def search_similar_cases_filtered(query_text: str, keyword: str, k: int = 3) -> list[dict]:
     results = collection.query(
         query_texts=[query_text],
         n_results=50,
@@ -85,19 +82,11 @@ def search_similar_cases_filtered(
 
     filtered_cases: list[dict] = []
 
-    # 결과가 전혀 없을 수도 있으니 방어
-    if not results or not results.get("ids"):
-        return []
+    for i in range(len(results["ids"][0])):
+        meta = results["metadatas"][0][i]
+        label = meta.get("label", "")
 
-    ids = results["ids"][0]
-    metadatas = results["metadatas"][0]
-    distances = results["distances"][0]
-
-    for i in range(len(ids)):
-        meta = metadatas[i]
-        label = meta.get("label", "") or ""
-
-        if keyword not in label:
+        if keyword not in label and keyword != "기타":
             continue
 
         case_info = {
@@ -105,18 +94,38 @@ def search_similar_cases_filtered(
             "label": label,
             "summary": meta.get("summary", ""),
             "facts": meta.get("facts", ""),
-            "score": distances[i],
+            "score": results["distances"][0][i], 
         }
         filtered_cases.append(case_info)
 
-        if len(filtered_cases) >= k:
-            break
+    if not filtered_cases:
+        return []
 
-    return filtered_cases
+    filtered_cases.sort(key=lambda c: c["score"])
+
+    return filtered_cases[:k]
 
 
-# 판례 요약 문자열 생성
+# 판례 요약 정보 생성
 def summarize_cases_for_ui(user_text: str, cases: list[dict]) -> list[dict]:
+    """
+    입력:
+      - user_text: 사용자가 쓴 사건 개요
+      - cases: Chroma에서 뽑힌 raw 판례들
+        (각 원소: {"case_no", "label", "summary", "facts", "score"})
+
+    출력:
+      - [
+          {
+            "case_no": "...",
+            "label": "...",
+            "summary": "사건 요약",
+            "result": "판결 결과 및 적용 죄목",
+            "similarity": "내 사건과의 공통점"
+          },
+          ...
+        ]
+    """
     if not cases:
         return []
 
@@ -149,7 +158,9 @@ def summarize_cases_for_ui(user_text: str, cases: list[dict]) -> list[dict]:
         {{
           "case_no": "<해당 판례 사건번호 그대로>",
           "label": "<해당 판례 label 그대로>",
-          "text": "(1) [사건번호: xxxx] (유사도 높음)\\n- 사건 요약: ...\\n- 결과: ...\\n- 내 사건과의 공통점: ..."
+          "summary": "<해당 판례의 사건 요약(1~2문장)>",
+          "result": "<유죄/무죄 여부 및 적용 죄목, 형량 등 판결 결과 요약>",
+          "similarity": "<사용자 사건과 이 판례가 왜 비슷한지 한 문장으로>"
         }},
         ...
       ]
@@ -157,7 +168,7 @@ def summarize_cases_for_ui(user_text: str, cases: list[dict]) -> list[dict]:
 
     주의:
     - JSON 이외의 텍스트는 출력하지 마라.
-    - "text" 안의 줄바꿈은 반드시 \\n 으로 표현해라.
+    - 줄바꿈은 자유롭게 써도 되지만, 요약은 1~3문장 정도로 간결하게 작성해라.
     - 각 판례는 반드시 하나씩 매칭해서 작성하고, 판례 순서는 입력 순서를 그대로 유지해라.
     """
 
@@ -166,42 +177,42 @@ def summarize_cases_for_ui(user_text: str, cases: list[dict]) -> list[dict]:
             model=LLM_MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
+                {"role": "user",  "content": user_prompt},
             ],
         )
         raw = resp.choices[0].message.content or ""
         data = json.loads(raw)
         out_cases = data.get("cases", [])
+
         normalized: list[dict] = []
         for fallback, c_out in zip(cases, out_cases):
             normalized.append(
                 {
                     "case_no": c_out.get("case_no") or fallback.get("case_no", ""),
-                    "label": c_out.get("label") or fallback.get("label", ""),
-                    "text": c_out.get("text", "").replace("\\n", "\n").strip()
-                    or f"(판례 {fallback.get('case_no', '')}) 요약을 불러오지 못했습니다.",
+                    "label":   c_out.get("label")   or fallback.get("label", ""),
+                    "summary": (c_out.get("summary") or "").strip()
+                            or fallback.get("summary", "")[:200],
+                    "result":  (c_out.get("result") or "").strip(),
+                    "similarity": (c_out.get("similarity") or "").strip(),
                 }
             )
         return normalized
 
-    # LLM이 JSON을 제대로 안 주거나 에러날 때, 최소한 fallback 문자열 생성
     except Exception:
+        # LLM JSON 파싱 실패 시, 최소한의 fallback 구조라도 채워서 반환
         fallback_list: list[dict] = []
-        for idx, c in enumerate(cases, start=1):
-            txt = (
-                f"({idx}) [사건번호: {c.get('case_no','')}] (유사도 높음)\n"
-                f"- 사건 요약: {c.get('facts','')[:200]}\n"
-                f"- 결과: (판결 요지는 판례 원문을 참고해야 합니다.)\n"
-                f"- 내 사건과의 공통점: (사실관계를 바탕으로 유사점을 검토해야 합니다.)"
-            )
+        for c in cases:
             fallback_list.append(
                 {
                     "case_no": c.get("case_no", ""),
-                    "label": c.get("label", ""),
-                    "text": txt,
+                    "label":   c.get("label", ""),
+                    "summary": c.get("facts", "")[:200],
+                    "result":  "(판결 결과는 판례 원문을 참고해야 합니다.)",
+                    "similarity": "(사실관계를 바탕으로 유사점을 검토해야 합니다.)",
                 }
             )
         return fallback_list
+
 
 
 # offense 매핑
