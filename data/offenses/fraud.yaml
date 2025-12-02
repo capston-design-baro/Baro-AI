@@ -45,7 +45,7 @@ details:
       nice_to_have: [name_of goods]
     questions:
       amount_numeric_or_item_value: "사기당한 금액(숫자) 또는 물건과 그 가액을 정확히 적어주세요. (예: 1,000,000원 / 옷 1개 10만원 상당)"
-      name_of goods: "구입/이용한 물품명 또는 브랜드/모델/서비스의 구체적인 명확한 명칭을 알려주세요.(예: 중고 아이패드 프로 12.9형, OO항공권 대행 서비스)"
+      name_of goods: "물품일 경우 구입/이용한 물품명 또는 브랜드/모델/서비스의 구체적인 명확한 명칭을 알려주세요.(예: 중고 아이패드 프로 12.9형, OO항공권 대행 서비스)"
 elements:
   - id: deception
     label: 기망행위
