@@ -41,12 +41,11 @@ details:
   - id: detail_amount
     label: 금액/가액 및 거래 품목/서비스
     slots:
-      must: ["amount_numeric_or_item_value", "goods_or_service"]
+      must: ["amount_numeric_or_item_value"]
       nice_to_have: [name_of goods]
     questions:
       amount_numeric_or_item_value: "사기당한 금액(숫자) 또는 물건과 그 가액을 정확히 적어주세요. (예: 1,000,000원 / 옷 1개 10만원 상당)"
-      goods_or_service: "어떤 물품이나 서비스 거래였는지 구체적으로 알려주세요. (예: 중고 아이패드 프로 12.9형, 항공권 대행 서비스)"
-      name_of goods: "구입/이용한 물품명 또는 브랜드/모델/서비스의 구체적인 명확한 명칭을 알려주세요."
+      name_of goods: "구입/이용한 물품명 또는 브랜드/모델/서비스의 구체적인 명확한 명칭을 알려주세요.(예: 중고 아이패드 프로 12.9형, OO항공권 대행 서비스)"
 elements:
   - id: deception
     label: 기망행위
