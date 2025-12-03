@@ -7,12 +7,12 @@ includes:
 
 details:
   - id: detail_datetime
-    label: 정확한 일시
+    label: 일시
     slots:
       must: ["date"]
       nice_to_have: []
     questions:
-      date: "사건의 정확한 날짜와 시각을 다시 한 번 구체적으로 알려주시겠어요? (예: 2025-10-10 22:10)"
+      date: "사건이 언제쯤 있었나요? 예: 2025-10-10 밤 9시경"
 
   - id: detail_place_or_platform
     label: 플랫폼/앱 또는 장소

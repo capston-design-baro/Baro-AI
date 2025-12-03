@@ -11,3 +11,4 @@ fraud2.json
 *.bin
 *.pickle
 *.sqlite3
+*.xlsx
