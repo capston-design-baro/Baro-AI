@@ -41,3 +41,6 @@ out/
 # Documentation
 README.md
 docs/
+
+# RAG Database (S3에서 다운로드)
+data/rag_db/
