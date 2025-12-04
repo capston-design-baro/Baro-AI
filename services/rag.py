@@ -14,20 +14,30 @@ DB_PATH = BASE / "data" / "rag_db"
 CSV_PATH = BASE / "data" / "crime_mapping_worklist.csv"
 
 COLLECTION_NAME = "criminal_cases"
-LLM_MODEL = settings.OPENAI_COMPOSE_MODEL 
+LLM_MODEL = settings.OPENAI_COMPOSE_MODEL
 
-chroma_client = chromadb.PersistentClient(path=str(DB_PATH))
-openai_ef = embedding_functions.OpenAIEmbeddingFunction(
-    api_key=OPENAI_API_KEY,
-    model_name="text-embedding-3-small",
-)
-
-collection = chroma_client.get_collection(
-    name=COLLECTION_NAME,
-    embedding_function=openai_ef,
-)
-
+# Lazy initialization
+_chroma_client = None
+_collection = None
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
+
+
+def get_collection():
+    """ChromaDB collection을 lazy하게 초기화"""
+    global _chroma_client, _collection
+
+    if _collection is None:
+        _chroma_client = chromadb.PersistentClient(path=str(DB_PATH))
+        openai_ef = embedding_functions.OpenAIEmbeddingFunction(
+            api_key=OPENAI_API_KEY,
+            model_name="text-embedding-3-small",
+        )
+        _collection = _chroma_client.get_collection(
+            name=COLLECTION_NAME,
+            embedding_function=openai_ef,
+        )
+
+    return _collection
 
 def load_offense_names(csv_path: str):
     offense_names: list[str] = []
@@ -75,6 +85,7 @@ def predict_crime_keyword(user_query: str) -> str:
 
 # 벡터 검색 + 키워드 필터
 def search_similar_cases_filtered(query_text: str, keyword: str, k: int = 3) -> list[dict]:
+    collection = get_collection()
     results = collection.query(
         query_texts=[query_text],
         n_results=50,

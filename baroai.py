@@ -16,9 +16,20 @@ from services.pipelines import (
     _user_window,
     compose_complaint
 )
-from services.rag import run_rag_preview, map_keyword_to_offense 
+from services.rag import run_rag_preview, map_keyword_to_offense
+from services.rag_bootstrap import ensure_rag_resources
 
 app = FastAPI(title="BARO-AI: Complaint Draft API", version="0.1.0")
+
+
+@app.on_event("startup")
+async def startup_event():
+    """서비스 시작 시 RAG DB 준비"""
+    print("[STARTUP] Ensuring RAG resources...")
+    ensure_rag_resources()
+    print("[STARTUP] RAG resources ready!")
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
