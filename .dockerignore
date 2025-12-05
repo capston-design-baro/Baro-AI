@@ -37,6 +37,7 @@ Thumbs.db
 
 # Output files
 out/
+!out/prompts/
 
 # Documentation
 README.md
