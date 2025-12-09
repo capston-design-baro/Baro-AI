@@ -303,6 +303,15 @@ def compose_complaint(meta, collected: dict, evidence: List[str]):
         "- 어떤 물품을 구입/이용했는지 알 수 있는 경우, 물품명과 브랜드/모델/서비스 명칭을 반드시 기재하십시오.\n"
     )
 
+    if getattr(meta, "offense", "") == "fraud":
+        user += (
+            "\n- 본 사건이 사기죄에 해당하는 경우, 범죄사실 및 고소이유를 작성할 때 "
+            "기망행위(거짓말·허위 약속) → 그로 인한 고소인의 착오 → 금전 지급 등 재산적 처분행위 → "
+            "재산상 손해에 각각 대응하는 사실을 시간 순서대로 드러내십시오.\n"
+            "- 또한 고소이유 작성과정에, 위 사실관계를 정리하면서 "
+            "‘기망’, ‘착오’, ‘재산적 처분행위’, ‘재산상 손해’라는 용어를 적어도 한 번씩 명시적으로 사용하십시오.\n"
+        )
+
     out = respond(settings.OPENAI_COMPOSE_MODEL, COMPOSE_SYSTEM, user)
     draft = postprocess_complaint(out)
     sections = split_complaint_sections(draft)
