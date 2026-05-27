@@ -3,7 +3,7 @@ from uuid import uuid4
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Literal, Optional
+from typing import Literal
 from cfg import settings
 from loaders.offense_loader import get_offense_meta
 from services.pipelines import (
@@ -51,60 +51,69 @@ class ChatMessageRequest(BaseModel):
     session_id: str
     message: str
 
+class ChatHistoryItem(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+class ChatRestoreRequest(BaseModel):
+    history: list[ChatHistoryItem]
+
 @app.get("/")
 def health():
     return {"ok": True, "service": app.title, "model": settings.OPENAI_CHAT_MODEL}
 
-@app.post("/chat/init")
-def chat_init(req: ChatInitRequest):  
-    rag = run_rag_preview(req.text, k=2)
+
+def _build_session(text: str) -> dict:
+    rag = run_rag_preview(text, k=2)
     rag_keyword = rag["keyword"]
     rag_cases = rag["cases"]          # {case_no, label, text}
 
     offense = map_keyword_to_offense(rag_keyword)
 
-    sid = str(uuid4())
-    SESSIONS[sid] = {
+    return {
         "offense": offense,
         "history": [
-            {"role": "user", "content": req.text},
+            {"role": "user", "content": text},
         ],
         "collected": {},
         "rag_keyword": rag_keyword,
-        # 필요하면 여기 rag_cases도 넣을 수 있음:
-        # "rag_cases": rag_cases,
+        "rag_cases": rag_cases,
     }
+
+
+def _progress_from_session(s: dict) -> dict:
+    collected = s.get("collected") or {}
+    elements = collected.get("elements") or {}
+    details = collected.get("details") or {}
 
     return {
-        "session_id": sid,
-        "offense": offense,
-        "rag_keyword": rag_keyword, #str
-        "rag_cases": rag_cases, #list[dict] {case_no, label, text}
+        "complete": False,
+        "elements": elements,
+        "details": details,
     }
 
 
-@app.post("/chat/send")
-def chat_send(req: ChatMessageRequest):
-    s = SESSIONS.get(req.session_id)
+def _send_to_session(session_id: str, message: str) -> dict:
+    s = SESSIONS.get(session_id)
     if not s:
         raise HTTPException(404, "세션을 찾을 수 없습니다. /chat/init 먼저 호출하세요.")
-    
-    offense = s["offense"]  # "fraud"
+
+    offense = s["offense"]
     meta = get_offense_meta(offense)
 
-    s["history"].append({"role": "user", "content": req.message})
-    user_text = _user_window(s["history"], max_chars=1800) 
+    s["history"].append({"role": "user", "content": message})
+    user_text = _user_window(s["history"], max_chars=1800)
 
     # LLM 호출
     parsed = extract_all(user_text, offense)
     elements = enforce_elements(meta, parsed.get("elements", {}), user_text)
-    details  = enforce_details(parsed.get("details", {}), offense)
+    details = enforce_details(parsed.get("details", {}), offense)
 
     s["collected"] = {
         "elements": elements,
         "details": details,
     }
-    s["details"]   = details
+    s["details"] = details
 
     # 질문 선택
     reply = pick_detail_followup(details, offense) or pick_element_followup(elements, meta) \
@@ -124,10 +133,54 @@ def chat_send(req: ChatMessageRequest):
     caution_msg = classify_need_caution("\n".join(m["content"] for m in s["history"] if m["role"]=="user"))
 
     return {
-        "session_id": req.session_id,
+        "session_id": session_id,
         "reply": reply,
         "caution": bool(caution_msg),
         "progress": {"complete": complete, "elements": elements, "details": details},
+    }
+
+@app.post("/chat/init")
+def chat_init(req: ChatInitRequest):  
+    sid = str(uuid4())
+    SESSIONS[sid] = _build_session(req.text)
+
+    return {
+        "session_id": sid,
+        "offense": SESSIONS[sid]["offense"],
+        "rag_keyword": SESSIONS[sid]["rag_keyword"], #str
+        "rag_cases": SESSIONS[sid]["rag_cases"], #list[dict] {case_no, label, text}
+    }
+
+
+@app.post("/chat/send")
+def chat_send(req: ChatMessageRequest):
+    return _send_to_session(req.session_id, req.message)
+
+
+@app.post("/chat/restore")
+def chat_restore(req: ChatRestoreRequest):
+    user_messages = [
+        item.content.strip()
+        for item in req.history
+        if item.role == "user" and item.content and item.content.strip()
+    ]
+
+    if not user_messages:
+        raise HTTPException(400, "복원할 사용자 메시지가 없습니다.")
+
+    sid = str(uuid4())
+    SESSIONS[sid] = _build_session(user_messages[0])
+
+    last_response = None
+    for message in user_messages[1:]:
+        last_response = _send_to_session(sid, message)
+
+    return {
+        "session_id": sid,
+        "offense": SESSIONS[sid]["offense"],
+        "rag_keyword": SESSIONS[sid]["rag_keyword"],
+        "rag_cases": SESSIONS[sid]["rag_cases"],
+        "progress": last_response["progress"] if last_response else _progress_from_session(SESSIONS[sid]),
     }
 
 @app.post("/chat/compose")
