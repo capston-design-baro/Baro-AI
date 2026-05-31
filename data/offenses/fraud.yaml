@@ -12,7 +12,7 @@ details:
       must: ["date"]
       nice_to_have: []
     questions:
-      date: "사건이 언제 발생했나요? 가능한 정확히 말해주세요. (예: 2026-1-1 오후 9시에 권유, 2026-1-3 오후 3시에 송금)"
+      date: "사건이 언제 발생했나요? 가능한 정확히 말해주세요.\n(예: 2026-1-1 오후 9시에 권유, 2026-1-3 오후 3시에 송금)"
 
   - id: detail_place_or_platform
     label: 플랫폼/앱 또는 장소
@@ -27,7 +27,7 @@ details:
       must: ["method"]
       nice_to_have: []
     questions:
-      method: "금전 거래는 어떤 방식으로 이루어졌나요? (계좌이체/현금/수표/카드/페이/택배대금 등)"
+      method: "금전 거래는 어떤 방식으로 이루어졌나요? \n(계좌이체/현금/수표/카드/페이/택배대금 등)"
 
   - id: detail_recipient
     label: 거래 상대 식별
@@ -44,7 +44,7 @@ details:
       must: ["amount_numeric_or_item_value"]
       nice_to_have: []
     questions:
-      amount_numeric_or_item_value: "사기당한 금액(숫자) 또는 물건과 그 가액을 정확히 적어주세요. (예: 1,000,000원 / OO브랜드 옷 1개 10만원 상당)"
+      amount_numeric_or_item_value: "사기당한 금액(숫자) 또는 물건과 그 가액을 정확히 적어주세요. \n(예: 1,000,000원 / OO브랜드 옷 1개 10만원 상당)"
 elements:
   - id: deception
     label: 기망행위
@@ -55,16 +55,16 @@ elements:
     questions:
       - id: dec_quote
         slot: quote
-        text: "상대가 어떻게 당신을 속였는지 가능한 그대로 다시 말해주세요. (예: “시세보다 20% 싸게 해줄게”)"
+        text: "상대가 어떻게 당신을 속였는지 가능한 그대로 다시 말해주세요. \n(예: “시세보다 20% 싸게 해줄게”)"
       - id: dec_who
         slot: who
         text: "당신을 속인 사람의 신원을 아는대로 말해주세요. (이름/별칭/관계, 직함/소속 등)"
       - id: dec_role
         slot: role_claim
-        text: "상대가 특정 직업/직함을 말한 적이 있나요?(예: ㈜○○ OO팀장)"
+        text: "상대가 특정 직업/직함을 말한 적이 있나요? (예: ㈜○○ OO팀장)"
       - id: dec_third
         slot: third_party
-        text: "다른 사람/회사/기관을 끌어들여 말한 적이 있나요? (예: 상가 주인/컨설팅 회사)"
+        text: "다른 사람/회사/기관을 끌어들여 말한 적이 있나요?\n (예: 상가 주인/컨설팅 회사)"
       - id: dec_link
         slot: doc_or_link
         text: "관련 홍보자료/사이트/게시물 링크가 있나요?"
