@@ -190,6 +190,53 @@ def _user_window(history: list[dict], max_chars: int = 2500) -> str:
             break
     return "\n".join(reversed(buf))
 
+def pick_detail_followup(details: Dict[str, dict], offense: str) -> Optional[str]:
+    for spec in get_detail_schema(offense):
+        detail_id = spec["id"]
+        rec = (details or {}).get(detail_id, {}) or {}
+        slots = rec.get("slots", {}) or {}
+        
+        asked_counts = rec.get("_asked_count", {})
+
+        # 1. must (필수 항목) 검사
+        for s in spec["must"]:
+            if slots.get(s) in (None, "missing", "unclear"):
+                count = asked_counts.get(s, 0)
+                
+                if count < 2: 
+                    _increment_ask_count(details, detail_id, s)
+                    question = spec["questions"].get(s) or f"{spec['label']}의 '{s}' 정보를 알려주세요."
+                    return _question_with_reason(question, spec["label"], rec)
+                else:
+                    continue
+
+        # 2. nice_to_have (선택 항목) 검사
+        if all(slots.get(s) == "present" for s in spec["must"]):
+            for s in spec["nice"]:
+                if slots.get(s) in (None, "missing", "unclear"):
+                    count = asked_counts.get(s, 0)
+                    
+                    if count < 2:
+                        _increment_ask_count(details, detail_id, s)
+                        question = spec["questions"].get(s) or f"{spec['label']}의 '{s}' 정보를 알려주세요."
+                        return _question_with_reason(question, spec["label"], rec)
+                    else:
+                        continue
+                        
+    return None
+
+def _increment_ask_count(details: Dict[str, dict], detail_id: str, slot_name: str):
+    """특정 슬롯의 질문 횟수를 1 증가시키는 범용 헬퍼 함수"""
+    try:
+        rec = details.get(detail_id) or {}
+        if "_asked_count" not in rec:
+            rec["_asked_count"] = {}
+            
+        rec["_asked_count"][slot_name] = rec["_asked_count"].get(slot_name, 0) + 1
+        details[detail_id] = rec
+    except Exception:
+        pass
+
 def pick_element_followup(elements: Dict[str, dict], meta) -> Optional[str]:
     for e in meta.elements:
         element_id = e.id
@@ -205,20 +252,17 @@ def pick_element_followup(elements: Dict[str, dict], meta) -> Optional[str]:
 
         # 1. must (필수 항목) 검사
         for slot_name in must:
-            # slots 값이 'unknown'이면 이 조건을 타지 않고 조용히 패스함!
             if slots.get(slot_name) in (None, "missing", "unclear"):
                 count = asked_counts.get(slot_name, 0)
                 
                 if count < 2:
                     _increment_ask_count(elements, element_id, slot_name)
-                    # 해당 슬롯 질문 찾기
                     for q in getattr(e, "questions", []) or []:
                         if getattr(q, "slot", None) == slot_name:
                             return _question_with_reason(q.text, e.label, rec)
                     fallback = f"{e.label}의 '{slot_name}' 정보를 알려주세요."
                     return _question_with_reason(fallback, e.label, rec)
                 else:
-                    # 2번 물어봤으면 포기
                     continue
 
         # 2. nice_to_have (선택 항목) 검사
@@ -236,35 +280,6 @@ def pick_element_followup(elements: Dict[str, dict], meta) -> Optional[str]:
                         return _question_with_reason(fallback, e.label, rec)
                     else:
                         continue
-    return None
-
-def _increment_ask_count(details: Dict[str, dict], detail_id: str, slot_name: str):
-    """특정 슬롯의 질문 횟수를 1 증가시키는 범용 헬퍼 함수"""
-    try:
-        rec = details.get(detail_id) or {}
-        if "_asked_count" not in rec:
-            rec["_asked_count"] = {}
-            
-        rec["_asked_count"][slot_name] = rec["_asked_count"].get(slot_name, 0) + 1
-        details[detail_id] = rec
-    except Exception:
-        pass
-
-def pick_element_followup(elements: Dict[str, dict], meta) -> Optional[str]:
-    for e in meta.elements:
-        rec = elements.get(e.id, {}) or {}
-        slot_status = rec.get("slots", {}) or {}
-        s = _normalize_slots(getattr(e, "slots", None))
-        must = s["must"]
-
-        for slot_name in must:
-            if slot_status.get(slot_name) in (None, "missing", "unclear"):
-                # 해당 슬롯 질문 찾기
-                for q in getattr(e, "questions", []) or []:
-                    if getattr(q, "slot", None) == slot_name:
-                        return _question_with_reason(q.text, e.label, rec)
-                fallback = f"{e.label}의 '{slot_name}' 정보를 알려주세요."
-                return _question_with_reason(fallback, e.label, rec)
     return None
 
 def _mark_date_asked_once(details: Dict[str, dict]):
