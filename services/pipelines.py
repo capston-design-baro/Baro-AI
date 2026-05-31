@@ -4,7 +4,7 @@ import json
 import re
 from functools import lru_cache
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 from cfg import settings
 from services.openai_client import respond
@@ -216,7 +216,7 @@ def pick_detail_followup(details: Dict[str, dict], offense: str) -> Optional[str
                 if slots.get(s) in (None, "missing", "unclear"):
                     count = asked_counts.get(s, 0)
                     
-                    if count < 2:
+                    if count < 1:
                         _increment_ask_count(details, detail_id, s)
                         question = spec["questions"].get(s) or f"{spec['label']}의 '{s}' 정보를 알려주세요."
                         return _question_with_reason(question, spec["label"], rec)
@@ -271,7 +271,7 @@ def pick_element_followup(elements: Dict[str, dict], meta) -> Optional[str]:
                 if slots.get(slot_name) in (None, "missing", "unclear"):
                     count = asked_counts.get(slot_name, 0)
                     
-                    if count < 2:
+                    if count < 1:
                         _increment_ask_count(elements, element_id, slot_name)
                         for q in getattr(e, "questions", []) or []:
                             if getattr(q, "slot", None) == slot_name:
