@@ -86,12 +86,12 @@ def _build_single_prompt(user_text: str, meta, offense: str) -> str:
     dlines = "\n".join(_lines_for_details(offense))
     return (
         "아래 '법적 구성요건(elements)'과 '디테일(details)' 스키마에 따라, 사용자의 서술을 **매우 보수적**으로 평가하세요.\n"
-        "- 텍스트에 **명시**되지 않으면 추론하지 말고 missing으로 표기\n"
-        "- '쯤/경/대략' 등의 애매한 표현이 처음으로 등장하면 일단 'unclear'로 표기하여 재확인을 유도하세요.\n"
-        "- 단, 사용자가 이전에 말한 내용에 대해 '맞다', '정확하다' 등 확언하거나 정정하는 문맥이 있다면, 애매한 표현이 섞여 있어도 반드시 'present'로 인정하세요.\n"
-        "- '기억 안 남', '모름' 등으로 대답한 경우 'unclear'로 표기하세요.\n"
+        "- 텍스트에 **명시**되지 않거나 언급이 없으면 추론하지 말고 'missing'으로 표기\n"
+        "- '쯤/경/대략' 등의 애매한 표현이 처음 등장하면 'unclear'로 표기하여 재확인 유도\n"
+        "- 단, 사용자가 이전에 말한 내용에 대해 '맞다', '정확하다' 등 확언하면 'present'로 인정\n"
+        "- 사용자가 '모른다', '없다', '기억 안 난다'고 명확하게 거절/답변한 항목은 슬롯 값을 반드시 'unknown'으로 표기\n"
         "- 각 항목의 status는 'satisfied|missing|unclear'\n"
-        "- 각 항목의 slots 값은 'present|missing|unclear'\n"
+        "- 각 항목의 slots 값은 'present|missing|unclear|unknown'\n"
         "- **must 슬롯 중 하나라도 present가 아니면 해당 항목 status는 반드시 'missing'**\n"
         "- 가능할 때 evidence에 짧게 한 구절만 인용(없으면 빈 문자열)\n\n"
         "JSON만 출력:\n"
