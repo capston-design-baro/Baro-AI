@@ -90,6 +90,7 @@ def _build_single_prompt(user_text: str, meta, offense: str) -> str:
         "- '쯤/경/대략', '확실하지 않다' 등의 표현이 섞여 있더라도, 해당 항목에 필요한 구체적인 데이터가 제공되었다면 'present'로 인정하세요.\n"
         "- 단, 주의하세요! '시간(예: 6시 15분)'만 있고 '정확한 날짜(예: 몇 월 몇 일)'는 없는 경우처럼, 해당 슬롯이 요구하는 **핵심 정보가 누락된 경우에는 통과시키지 말고 반드시 'missing'으로 표기**하여 재질문을 유도하십시오.\n"
         "- 구체적인 데이터 없이 오직 '모른다', '없다'고 명확히 거절/답변한 항목은 **반드시 'unknown'**으로 기재하십시오.\n"
+        "- 'summary' 작성 시 '기망행위', '처분행위', '공연성', '특정성' 등 딱딱한 법률 용어를 절대 사용하지 마십시오. 마치 친절한 상담원처럼 사용자가 말한 사실만 일상어(예: '~라고 말씀해주셨군요')로 부드럽게 1문장 요약하세요.\n"
         "- 각 항목의 status는 'satisfied|missing|unclear'\n"
         "- 각 항목의 slots 값은 'present|missing|unclear|unknown' 중 하나만 사용할 것.\n"
         "- 가능할 때 evidence에 짧게 한 구절만 인용(없으면 빈 문자열)\n\n"
@@ -98,19 +99,19 @@ def _build_single_prompt(user_text: str, meta, offense: str) -> str:
         '  "elements": {\n'
         '    "<element_id>": {\n'
         '      "status": "satisfied|missing|unclear",\n'
-        '      "slots": {"<slot>": "present|missing|unclear", ...},\n'
+        '      "slots": {"<slot>": "present|missing|unclear|unknown", ...},\n'
         '      "evidence": "<짧은 인용 또는 빈 문자열>",\n'
-        '      "summary": "경어체로 1~2문장 요약"\n'
-        "    }, ...\n"
-        "  },\n"
+        '      "summary": "법률 용어 제외, 부드러운 일상어로 1문장 요약"\n'
+        '    }, ...\n'
+        '  },\n'
         '  "details": {\n'
         '    "<detail_id>": {\n'
         '      "status": "satisfied|missing|unclear",\n'
-        '      "slots": {"<slot>": "present|missing|unclear", ...},\n'
+        '      "slots": {"<slot>": "present|missing|unclear|unknown", ...},\n'
         '      "evidence": "<짧은 인용 또는 빈 문자열>",\n'
-        '      "summary": "경어체로 1~2문장 요약"\n'
-        "    }, ...\n"
-        "  }\n"
+        '      "summary": "법률 용어 제외, 부드러운 일상어로 1문장 요약"\n'
+        '    }, ...\n'
+        '  }\n'
         "}\n\n"
         "[elements]\n" + elines + "\n\n" +
         "[details]\n" + dlines + "\n\n" +
