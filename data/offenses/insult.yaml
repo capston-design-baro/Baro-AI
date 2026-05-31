@@ -5,45 +5,69 @@ statute_ref: "형법 제311조"
 includes:
   - party_info
 
+details:
+  - id: detail_datetime
+    label: 일시
+    slots:
+      must: ["date"]
+    questions:
+      date: "사건이 언제 발생했나요? 가능한 정확히 말해주세요. (예: 2026. 5. 31. 오후 3시)"
+
+  - id: detail_place_or_platform
+    label: 장소 및 플랫폼
+    slots:
+      must: ["channel_or_place"]
+    questions:
+      channel_or_place: "어디에서 있었나요? (단체 카톡방, 직장 내 회의실, 온라인 커뮤니티, 게임 채팅창 등)"
+
 elements:
   - id: public_nature
     label: 공연성
     required: true
     slots:
-      must: ["where", "audience_scope", "repeat_or_public"]
+      must: ["audience_scope"]
+      nice_to_have: ["repeat_or_public"]
     questions:
-      - id: pub_where
-        slot: where
-        text: "어디에서 있었나요? (단체 카톡방/직장 메신저/공개 게시판 등)"
       - id: pub_scope
         slot: audience_scope
-        text: "몇 명 이상이 볼 수 있는 상태였나요? (방 인원/공개 범위)"
+        text: "당시 가해자와 본인 외에 몇 명 이상이 그 상황을 보거나 들을 수 있었나요? (예: 50명이 있는 단톡방, 누구나 볼 수 있는 공개 게시판)"
       - id: pub_repeat
         slot: repeat_or_public
-        text: "여러 번이었나요, 공개적으로 볼 수 있었나요? (예: 다수가 보는 채널에 반복 게시)"
+        text: "일회성이었나요, 아니면 여러 번 반복되거나 지속적으로 노출되었나요?"
+
+  - id: specifiability
+    label: 특정성
+    required: true
+    slots:
+      must: ["how_identified"]
+      nice_to_have: ["offline_relation"]
+    questions:
+      - id: spec_how
+        slot: how_identified
+        text: "다른 사람들이 모욕을 당하는 대상이 '본인'이라는 것을 어떻게 알 수 있었나요? (예: 실명/사진/주소가 공개되어 있었음, 지인들이 있는 방이었음)"
+      - id: spec_relation
+        slot: offline_relation
+        text: "상대방이나 그 자리에 있던 사람들이 현실에서도 당신을 아는 사이인가요?"
 
   - id: insulting_expression
     label: 모욕적 표현
     required: true
     slots:
-      must: ["quote", "target", "when"]
+      must: ["quote", "target"]
       nice_to_have: ["context", "screenshot"]
     questions:
       - id: ins_quote
         slot: quote
-        text: "어떤 표현을 썼나요? 가능한 한 그대로 적어주세요. (직접 인용)"
+        text: "상대방이 어떤 표현을 썼나요? 가능한 한 덧붙이지 말고 그대로 적어주세요."
       - id: ins_target
         slot: target
-        text: "그 표현은 누구를 향했나요? (당신/지칭 표현 등)"
-      - id: ins_when
-        slot: when
-        text: "언제였나요? (YYYY-MM-DD HH:MM)"
+        text: "그 표현이 당신을 향한 것이라는 점을 어떻게 알 수 있었나요? (당신의 닉네임이나 특징을 지칭함 등)"
       - id: ins_ctx
         slot: context
-        text: "그 상황의 맥락이 있나요? (직장/수업/프로젝트 관련 등)"
+        text: "왜 그런 발언이 나왔는지 전후 상황(맥락)을 간략히 알려주세요."
       - id: ins_ss
         slot: screenshot
-        text: "캡처나 링크가 있나요? (자료가 있다면 종류를 적어주세요.)"
+        text: "해당 발언을 캡처한 사진이나 녹음본 등의 증거가 있나요?"
 
 templates:
   complaint_purpose: "피고소인을 모욕죄로 엄중 처벌하여 주시기 바랍니다."
