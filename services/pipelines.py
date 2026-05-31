@@ -91,6 +91,7 @@ def _build_single_prompt(user_text: str, meta, offense: str) -> str:
         "- '쯤/경/대략', '확실하지 않다' 등의 표현이 섞여 있더라도, 해당 항목에 필요한 구체적인 데이터가 제공되었다면 'present'로 인정하세요.\n"
         "- 단, 주의하세요! '시간(예: 6시 15분)'만 있고 '정확한 날짜(예: 몇 월 몇 일)'는 없는 경우처럼, 해당 슬롯이 요구하는 **핵심 정보가 누락된 경우에는 통과시키지 말고 반드시 'missing'으로 표기**하여 재질문을 유도하십시오.\n"
         "- 구체적인 데이터 없이 오직 '모른다', '없다'고 명확히 거절/답변한 항목은 **반드시 'unknown'**으로 기재하십시오.\n"
+        "- 'summary'는 단순히 사용자의 말을 앵무새처럼 요약하는 필드가 아닙니다! 해당 항목에서 어떤 정보는 확인되었고, 반대로 '어떤 정보가 아직 비어있어서(missing) 이 추가 질문을 던지는 것인지' 그 이유(명분)를 상담원처럼 부드럽게 1~2문장으로 짚어주세요.\n"
         "- 각 항목의 status는 'satisfied|missing|unclear'\n"
         "- 각 항목의 slots 값은 'present|missing|unclear|unknown' 중 하나만 사용할 것.\n"
         "- 가능할 때 evidence에 짧게 한 구절만 인용(없으면 빈 문자열)\n\n"
@@ -101,7 +102,7 @@ def _build_single_prompt(user_text: str, meta, offense: str) -> str:
         '      "status": "satisfied|missing|unclear",\n'
         '      "slots": {"<slot>": "present|missing|unclear|unknown", ...},\n'
         '      "evidence": "<짧은 인용 또는 빈 문자열>",\n'
-        '      "summary": "법률 용어 제외, 경어체로 1~2문장 요약"\n'
+        '      "summary": "법률 용어 제외, 경어체로 부족한 정보(질문 이유)를 짚어주는 1~2문장 요약"\n'
         '    }, ...\n'
         '  },\n'
         '  "details": {\n'
@@ -109,7 +110,7 @@ def _build_single_prompt(user_text: str, meta, offense: str) -> str:
         '      "status": "satisfied|missing|unclear",\n'
         '      "slots": {"<slot>": "present|missing|unclear|unknown", ...},\n'
         '      "evidence": "<짧은 인용 또는 빈 문자열>",\n'
-        '      "summary": "법률 용어 제외, 경어체로 1~2문장 요약"\n'
+        '      "summary": "법률 용어 제외, 부족한 정보(질문 이유)를 짚어주는 경어체로 1~2문장 요약"\n'
         '    }, ...\n'
         '  }\n'
         "}\n\n"
