@@ -12,7 +12,7 @@ details:
       must: ["date"]
       nice_to_have: []
     questions:
-      date: "사건이 언제 발생했나요? 가능한 정확히 말해주세요. 예: 2026-1-1 오후 9시에 권유받고, 2026-1-3 오후 3시에 송금"
+      date: "사건이 언제 발생했나요? 가능한 정확히 말해주세요. (예: 2026-1-1 오후 9시에 권유, 2026-1-3 오후 3시에 송금)"
 
   - id: detail_place_or_platform
     label: 플랫폼/앱 또는 장소
@@ -35,7 +35,7 @@ details:
       must: ["recipient_name_or_handle"]
       nice_to_have: ["bank_name"]
     questions:
-      recipient_name_or_handle: "상대방(수취인/지급의무자)을 식별할 수 있는 정보를 알려주세요. 예: 이름/닉네임/상호 등"
+      recipient_name_or_handle: "상대방(수취인/지급의무자)을 식별할 수 있는 정보를 알려주세요. (예: 이름/닉네임/상호 등)"
       bank_name: "계좌주·계좌번호 또는 프로필/계정 링크가 있으면 알려주세요."
 
   - id: detail_amount
@@ -44,7 +44,7 @@ details:
       must: ["amount_numeric_or_item_value"]
       nice_to_have: []
     questions:
-      amount_numeric_or_item_value: "사기당한 금액(숫자) 또는 물건과 그 가액을 정확히 적어주세요. 예: 1,000,000원 / OO브랜드 옷 1개 10만원 상당"
+      amount_numeric_or_item_value: "사기당한 금액(숫자) 또는 물건과 그 가액을 정확히 적어주세요. (예: 1,000,000원 / OO브랜드 옷 1개 10만원 상당)"
 elements:
   - id: deception
     label: 기망행위
@@ -108,7 +108,7 @@ elements:
     questions:
       - id: pg_proof
         slot: proof
-        text: "금전 거래와 관련해 상대방이 약속을 지키지 않은 사실을 보여줄 자료가 있나요? (예: 송금내역, 미지급 대금 관련 대화 캡처, 통장사본, 계약서 등)"
+        text: "금전 거래와 관련해 상대방이 약속을 지키지 않은 사실을 보여줄 자료가 있나요? 해당 내역은 별지로 함께 제출해 주시면 됩니다. (예: 송금내역, 미지급 대금 관련 대화 캡처, 통장사본, 계약서 등)"
       - id: pg_recovery
         slot: recovery_status
         text: "지금까지 돌려받은 금액/물건이 있나요? 있다면 얼마/어떤 것인가요?"

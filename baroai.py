@@ -107,7 +107,12 @@ def _send_to_session(session_id: str, message: str) -> dict:
     # LLM 호출
     parsed = extract_all(user_text, offense)
     elements = enforce_elements(meta, parsed.get("elements", {}), user_text)
-    details = enforce_details(parsed.get("details", {}), offense)
+    details  = enforce_details(parsed.get("details", {}), offense)
+
+    old_details = s.get("collected", {}).get("details", {})
+    for did, rec in details.items():
+        if did in old_details and "_asked_count" in old_details[did]:
+            rec["_asked_count"] = old_details[did]["_asked_count"]
 
     s["collected"] = {
         "elements": elements,
