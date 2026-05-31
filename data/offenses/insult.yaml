@@ -19,6 +19,15 @@ details:
       must: ["channel_or_place"]
     questions:
       channel_or_place: "어디에서 있었나요? (단체 카톡방, 직장 내 회의실, 온라인 커뮤니티, 게임 채팅창 등)"
+  
+  - id: detail_accused
+    label: 가해자 식별
+    slots:
+      must: ["accused_info"]
+      nice_to_have: ["platform_profile"]
+    questions:
+      accused_info: "욕설을 한 상대방(가해자)을 특정할 수 있는 정보를 알려주세요. (예: 닉네임, 커뮤니티 ID, 실명 등)"
+      platform_profile: "상대방의 프로필 주소(URL)나 계정 고유 번호 등을 알고 계신다면 함께 적어주세요."
 
 elements:
   - id: public_nature
