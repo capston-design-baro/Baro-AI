@@ -109,6 +109,11 @@ def _send_to_session(session_id: str, message: str) -> dict:
     elements = enforce_elements(meta, parsed.get("elements", {}), user_text)
     details  = enforce_details(parsed.get("details", {}), offense)
 
+    old_elements = s.get("collected", {}).get("elements", {})
+    for eid, rec in elements.items():
+        if eid in old_elements and "_asked_count" in old_elements[eid]:
+            rec["_asked_count"] = old_elements[eid]["_asked_count"]
+
     old_details = s.get("collected", {}).get("details", {})
     for did, rec in details.items():
         if did in old_details and "_asked_count" in old_details[did]:
