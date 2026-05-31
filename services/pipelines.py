@@ -86,13 +86,11 @@ def _build_single_prompt(user_text: str, meta, offense: str) -> str:
     dlines = "\n".join(_lines_for_details(offense))
     return (
         "아래 '법적 구성요건(elements)'과 '디테일(details)' 스키마에 따라, 사용자의 서술을 **매우 보수적**으로 평가하세요.\n"
-        "- 텍스트에 **명시**되지 않거나 언급이 없으면 추론하지 말고 'missing'으로 표기\n"
-        "- '쯤/경/대략' 등의 애매한 표현이 처음 등장하면 'unclear'로 표기하여 재확인 유도\n"
-        "- 단, 사용자가 이전에 말한 내용에 대해 '맞다', '정확하다' 등 확언하면 'present'로 인정\n"
-        "- 사용자가 '모른다', '없다', '기억 안 난다'고 명확하게 거절/답변한 항목은 슬롯 값을 반드시 'unknown'으로 표기\n"
+        "- 텍스트에 **명시**되지 않거나 아직 언급이 없으면 추론하지 말고 'missing'으로 표기\n"
+        "- '쯤/경/대략', '확실하지 않다', '정확히는 모른다' 등의 표현이 섞여 있더라도, **날짜/시간/금액/계좌 등 구체적인 데이터가 하나라도 제공되었다면 딴지 걸지 말고 무조건 'present'로 인정**하세요.\n"
+        "- 단, 구체적인 데이터 제공이 전혀 없이 오직 '모른다', '없다', '아는 게 없다'고 명확하게 거절/답변한 항목의 slots 값은 절대 'missing'이나 'unclear'로 쓰지 말고 **반드시 'unknown'**으로 기재하십시오.\n"
         "- 각 항목의 status는 'satisfied|missing|unclear'\n"
-        "- 각 항목의 slots 값은 'present|missing|unclear|unknown'\n"
-        "- **must 슬롯 중 하나라도 present가 아니면 해당 항목 status는 반드시 'missing'**\n"
+        "- 각 항목의 slots 값은 'present|missing|unclear|unknown' 중 하나만 사용할 것.\n"
         "- 가능할 때 evidence에 짧게 한 구절만 인용(없으면 빈 문자열)\n\n"
         "JSON만 출력:\n"
         "{\n"
@@ -146,8 +144,8 @@ def enforce_elements(meta, elements: Dict[str, dict], user_text: str) -> Dict[st
         s = _normalize_slots(getattr(e, "slots", None))
         must = s["must"]
 
-        if has_uncertain(rec.get("summary", "")) or has_uncertain(rec.get("evidence", "")) or has_uncertain(user_text):
-            status = "unclear"
+        # if has_uncertain(rec.get("summary", "")) or has_uncertain(rec.get("evidence", "")) or has_uncertain(user_text):
+        #     status = "unclear"
 
         for slot_name in must:
             if slots.get(slot_name) != "present":
@@ -192,39 +190,52 @@ def _user_window(history: list[dict], max_chars: int = 2500) -> str:
             break
     return "\n".join(reversed(buf))
 
-def pick_detail_followup(details: Dict[str, dict], offense: str) -> Optional[str]:
-    for spec in get_detail_schema(offense):
-        detail_id = spec["id"]
-        rec = (details or {}).get(detail_id, {}) or {}
+def pick_element_followup(elements: Dict[str, dict], meta) -> Optional[str]:
+    for e in meta.elements:
+        element_id = e.id
+        rec = elements.get(element_id, {}) or {}
         slots = rec.get("slots", {}) or {}
         
+        # 질문 횟수 카운터 가져오기
         asked_counts = rec.get("_asked_count", {})
 
+        s = _normalize_slots(getattr(e, "slots", None))
+        must = s["must"]
+        nice = s["nice_to_have"]
+
         # 1. must (필수 항목) 검사
-        for s in spec["must"]:
-            if slots.get(s) in (None, "missing", "unclear"):
-                count = asked_counts.get(s, 0)
+        for slot_name in must:
+            # slots 값이 'unknown'이면 이 조건을 타지 않고 조용히 패스함!
+            if slots.get(slot_name) in (None, "missing", "unclear"):
+                count = asked_counts.get(slot_name, 0)
                 
-                if count < 2: 
-                    _increment_ask_count(details, detail_id, s)
-                    question = spec["questions"].get(s) or f"{spec['label']}의 '{s}' 정보를 알려주세요."
-                    return _question_with_reason(question, spec["label"], rec)
+                if count < 2:
+                    _increment_ask_count(elements, element_id, slot_name)
+                    # 해당 슬롯 질문 찾기
+                    for q in getattr(e, "questions", []) or []:
+                        if getattr(q, "slot", None) == slot_name:
+                            return _question_with_reason(q.text, e.label, rec)
+                    fallback = f"{e.label}의 '{slot_name}' 정보를 알려주세요."
+                    return _question_with_reason(fallback, e.label, rec)
                 else:
+                    # 2번 물어봤으면 포기
                     continue
 
         # 2. nice_to_have (선택 항목) 검사
-        if all(slots.get(s) == "present" for s in spec["must"]):
-            for s in spec["nice"]:
-                if slots.get(s) in (None, "missing", "unclear"):
-                    count = asked_counts.get(s, 0)
+        if all(slots.get(slot_name) not in (None, "missing", "unclear") for slot_name in must):
+            for slot_name in nice:
+                if slots.get(slot_name) in (None, "missing", "unclear"):
+                    count = asked_counts.get(slot_name, 0)
                     
                     if count < 2:
-                        _increment_ask_count(details, detail_id, s)
-                        question = spec["questions"].get(s) or f"{spec['label']}의 '{s}' 정보를 알려주세요."
-                        return _question_with_reason(question, spec["label"], rec)
+                        _increment_ask_count(elements, element_id, slot_name)
+                        for q in getattr(e, "questions", []) or []:
+                            if getattr(q, "slot", None) == slot_name:
+                                return _question_with_reason(q.text, e.label, rec)
+                        fallback = f"{e.label}의 '{slot_name}' 정보를 알려주세요."
+                        return _question_with_reason(fallback, e.label, rec)
                     else:
                         continue
-                        
     return None
 
 def _increment_ask_count(details: Dict[str, dict], detail_id: str, slot_name: str):
