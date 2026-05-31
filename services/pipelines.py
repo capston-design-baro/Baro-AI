@@ -87,7 +87,9 @@ def _build_single_prompt(user_text: str, meta, offense: str) -> str:
     return (
         "아래 '법적 구성요건(elements)'과 '디테일(details)' 스키마에 따라, 사용자의 서술을 **매우 보수적**으로 평가하세요.\n"
         "- 텍스트에 **명시**되지 않으면 추론하지 말고 missing으로 표기\n"
-        "- 애매 표현(쯤/경/무렵/대략/정도/기억 안 남 등)은 해당 슬롯을 'unclear'\n"
+        "- '쯤/경/대략' 등의 애매한 표현이 처음 등장하면 일단 'unclear'로 표기하여 재확인을 유도하세요.\n"
+        "- 단, 사용자가 이전에 말한 내용에 대해 '맞다', '정확하다' 등 확언하거나 정정하는 문맥이 있다면, 애매한 표현이 섞여 있어도 반드시 'present'로 인정하세요.\n"
+        "- '기억 안 남', '모름' 등으로 대답한 경우 'unclear'로 표기하세요.\n"
         "- 각 항목의 status는 'satisfied|missing|unclear'\n"
         "- 각 항목의 slots 값은 'present|missing|unclear'\n"
         "- **must 슬롯 중 하나라도 present가 아니면 해당 항목 status는 반드시 'missing'**\n"
@@ -192,30 +194,50 @@ def _user_window(history: list[dict], max_chars: int = 2500) -> str:
 
 def pick_detail_followup(details: Dict[str, dict], offense: str) -> Optional[str]:
     for spec in get_detail_schema(offense):
-        rec = (details or {}).get(spec["id"], {}) or {}
+        detail_id = spec["id"]
+        rec = (details or {}).get(detail_id, {}) or {}
         slots = rec.get("slots", {}) or {}
+        
+        asked_counts = rec.get("_asked_count", {})
 
-        if spec["id"] == DATE_DETAIL_ID:
-            asked_once = bool(rec.get("_date_asked_once"))
-            for s in spec["must"]:
-                if s == DATE_SLOT and slots.get(s) in (None, "missing", "unclear"):
-                    if not asked_once:
-                        _mark_date_asked_once(details)
-                        question = spec["questions"].get(s) or f"{spec['label']}의 '{s}' 정보를 알려주세요."
-                        return _question_with_reason(question, spec["label"], rec)
-
-        # must
+        # 1. must (필수 항목) 검사
         for s in spec["must"]:
             if slots.get(s) in (None, "missing", "unclear"):
-                question = spec["questions"].get(s) or f"{spec['label']}의 '{s}' 정보를 알려주세요."
-                return _question_with_reason(question, spec["label"], rec)
-        # nice_to_have
+                count = asked_counts.get(s, 0)
+                
+                if count < 2: 
+                    _increment_ask_count(details, detail_id, s)
+                    question = spec["questions"].get(s) or f"{spec['label']}의 '{s}' 정보를 알려주세요."
+                    return _question_with_reason(question, spec["label"], rec)
+                else:
+                    continue
+
+        # 2. nice_to_have (선택 항목) 검사
         if all(slots.get(s) == "present" for s in spec["must"]):
             for s in spec["nice"]:
                 if slots.get(s) in (None, "missing", "unclear"):
-                    question = spec["questions"].get(s) or f"{spec['label']}의 '{s}' 정보를 알려주세요."
-                    return _question_with_reason(question, spec["label"], rec)
+                    count = asked_counts.get(s, 0)
+                    
+                    if count < 2:
+                        _increment_ask_count(details, detail_id, s)
+                        question = spec["questions"].get(s) or f"{spec['label']}의 '{s}' 정보를 알려주세요."
+                        return _question_with_reason(question, spec["label"], rec)
+                    else:
+                        continue
+                        
     return None
+
+def _increment_ask_count(details: Dict[str, dict], detail_id: str, slot_name: str):
+    """특정 슬롯의 질문 횟수를 1 증가시키는 범용 헬퍼 함수"""
+    try:
+        rec = details.get(detail_id) or {}
+        if "_asked_count" not in rec:
+            rec["_asked_count"] = {}
+            
+        rec["_asked_count"][slot_name] = rec["_asked_count"].get(slot_name, 0) + 1
+        details[detail_id] = rec
+    except Exception:
+        pass
 
 def pick_element_followup(elements: Dict[str, dict], meta) -> Optional[str]:
     for e in meta.elements:
