@@ -3,7 +3,7 @@ from uuid import uuid4
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Literal
+from typing import Literal, Optional
 from cfg import settings
 from loaders.offense_loader import get_offense_meta
 from services.pipelines import (
@@ -46,6 +46,7 @@ class ComposeRequest(BaseModel):
 
 class ChatInitRequest(BaseModel):
     text: str
+    offense: Optional[str] = None
 
 class ChatMessageRequest(BaseModel):
     session_id: str
@@ -63,15 +64,35 @@ def health():
     return {"ok": True, "service": app.title, "model": settings.OPENAI_CHAT_MODEL}
 
 
-def _build_session(text: str) -> dict:
+def _normalize_offense(offense: Optional[str]) -> Optional[str]:
+    if not offense:
+        return None
+
+    normalized = offense.strip().lower()
+    offense_map = {
+        "fraud": "fraud",
+        "사기": "fraud",
+        "사기죄": "fraud",
+        "cyber_fraud": "fraud",
+        "사이버사기": "fraud",
+        "insult": "insult",
+        "모욕": "insult",
+        "모욕죄": "insult",
+    }
+
+    return offense_map.get(normalized, "fraud")
+
+
+def _build_session(text: str, offense: Optional[str] = None) -> dict:
     rag = run_rag_preview(text, k=2)
     rag_keyword = rag["keyword"]
     rag_cases = rag["cases"]          # {case_no, label, text}
 
-    offense = map_keyword_to_offense(rag_keyword)
+    selected_offense = _normalize_offense(offense)
+    resolved_offense = selected_offense or map_keyword_to_offense(rag_keyword)
 
     return {
-        "offense": offense,
+        "offense": resolved_offense,
         "history": [
             {"role": "user", "content": text},
         ],
@@ -151,7 +172,7 @@ def _send_to_session(session_id: str, message: str) -> dict:
 @app.post("/chat/init")
 def chat_init(req: ChatInitRequest):  
     sid = str(uuid4())
-    SESSIONS[sid] = _build_session(req.text)
+    SESSIONS[sid] = _build_session(req.text, req.offense)
 
     return {
         "session_id": sid,
