@@ -1,4 +1,4 @@
-from fastapi import HTTPException
+from fastapi import BackgroundTasks, HTTPException
 from uuid import uuid4
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -84,22 +84,42 @@ def _normalize_offense(offense: Optional[str]) -> Optional[str]:
 
 
 def _build_session(text: str, offense: Optional[str] = None) -> dict:
-    rag = run_rag_preview(text, k=2)
-    rag_keyword = rag["keyword"]
-    rag_cases = rag["cases"]          # {case_no, label, text}
-
     selected_offense = _normalize_offense(offense)
-    resolved_offense = selected_offense or map_keyword_to_offense(rag_keyword)
 
     return {
-        "offense": resolved_offense,
+        "offense": selected_offense or "fraud",
         "history": [
             {"role": "user", "content": text},
         ],
         "collected": {},
-        "rag_keyword": rag_keyword,
-        "rag_cases": rag_cases,
+        "rag_status": "pending",
+        "rag_keyword": None,
+        "rag_cases": [],
+        "rag_error": None,
+        "_selected_offense": bool(selected_offense),
     }
+
+
+def _load_rag_preview(session_id: str, text: str) -> None:
+    s = SESSIONS.get(session_id)
+    if not s:
+        return
+
+    try:
+        rag = run_rag_preview(text, k=2)
+        rag_keyword = rag["keyword"]
+        rag_cases = rag["cases"]
+
+        s["rag_keyword"] = rag_keyword
+        s["rag_cases"] = rag_cases
+        s["rag_status"] = "ready"
+        s["rag_error"] = None
+
+        if not s.get("_selected_offense"):
+            s["offense"] = map_keyword_to_offense(rag_keyword)
+    except Exception as e:
+        s["rag_status"] = "failed"
+        s["rag_error"] = str(e)
 
 
 def _progress_from_session(s: dict) -> dict:
@@ -170,15 +190,31 @@ def _send_to_session(session_id: str, message: str) -> dict:
     }
 
 @app.post("/chat/init")
-def chat_init(req: ChatInitRequest):  
+def chat_init(req: ChatInitRequest, background_tasks: BackgroundTasks):  
     sid = str(uuid4())
     SESSIONS[sid] = _build_session(req.text, req.offense)
+    background_tasks.add_task(_load_rag_preview, sid, req.text)
 
     return {
         "session_id": sid,
         "offense": SESSIONS[sid]["offense"],
+        "rag_status": SESSIONS[sid]["rag_status"],
         "rag_keyword": SESSIONS[sid]["rag_keyword"], #str
         "rag_cases": SESSIONS[sid]["rag_cases"], #list[dict] {case_no, label, text}
+    }
+
+
+@app.get("/chat/rag/{session_id}")
+def chat_rag(session_id: str):
+    s = SESSIONS.get(session_id)
+    if not s:
+        raise HTTPException(404, "세션을 찾을 수 없습니다. /chat/init 먼저 호출하세요.")
+
+    return {
+        "session_id": session_id,
+        "rag_status": s.get("rag_status", "pending"),
+        "rag_keyword": s.get("rag_keyword"),
+        "rag_cases": s.get("rag_cases") or [],
     }
 
 
@@ -188,7 +224,7 @@ def chat_send(req: ChatMessageRequest):
 
 
 @app.post("/chat/restore")
-def chat_restore(req: ChatRestoreRequest):
+def chat_restore(req: ChatRestoreRequest, background_tasks: BackgroundTasks):
     user_messages = [
         item.content.strip()
         for item in req.history
@@ -200,6 +236,7 @@ def chat_restore(req: ChatRestoreRequest):
 
     sid = str(uuid4())
     SESSIONS[sid] = _build_session(user_messages[0])
+    background_tasks.add_task(_load_rag_preview, sid, user_messages[0])
 
     last_response = None
     for message in user_messages[1:]:
@@ -208,6 +245,7 @@ def chat_restore(req: ChatRestoreRequest):
     return {
         "session_id": sid,
         "offense": SESSIONS[sid]["offense"],
+        "rag_status": SESSIONS[sid]["rag_status"],
         "rag_keyword": SESSIONS[sid]["rag_keyword"],
         "rag_cases": SESSIONS[sid]["rag_cases"],
         "progress": last_response["progress"] if last_response else _progress_from_session(SESSIONS[sid]),
