@@ -5,6 +5,7 @@ import chromadb
 from chromadb.utils import embedding_functions
 from openai import OpenAI
 from cfg import settings
+from services.cache import cache_get, cache_set_json
 
 BASE = Path(__file__).resolve().parents[1]
 
@@ -20,6 +21,16 @@ LLM_MODEL = settings.OPENAI_COMPOSE_MODEL
 _chroma_client = None
 _collection = None
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
+
+
+def _case_summary_cache_key(case_no: str) -> str:
+    normalized = (case_no or "unknown").strip()
+    return f"baro:rag:case-summary:{normalized}"
+
+
+def _similarity_fallback(user_text: str, case: dict) -> str:
+    label = case.get("label") or "해당 범죄"
+    return f"사용자 사건과 {label} 관련 사실관계의 유사성을 검토할 수 있습니다."
 
 
 def get_collection():
@@ -140,15 +151,42 @@ def summarize_cases_for_ui(user_text: str, cases: list[dict]) -> list[dict]:
     if not cases:
         return []
 
-    cases_block = ""
-    for idx, c in enumerate(cases, start=1):
-        cases_block += (
-            f"[판례 {idx}]\n"
-            f"- 사건번호: {c.get('case_no', '')}\n"
-            f"- 죄목(label): {c.get('label', '')}\n"
-            f"- 사실관계(facts): {c.get('facts', '')[:800]}\n\n"
+    summarized: list[dict] = []
+    for case in cases:
+        case_summary = get_or_create_case_summary(case)
+        summarized.append(
+            {
+                **case_summary,
+                "similarity": _similarity_fallback(user_text, case),
+            }
         )
+    return summarized
 
+
+def get_or_create_case_summary(case: dict) -> dict:
+    case_no = case.get("case_no", "")
+    cache_key = _case_summary_cache_key(case_no)
+
+    cached = cache_get(cache_key)
+    if cached:
+        try:
+            data = json.loads(cached)
+            print(f"[RAG CACHE] hit case_no={case_no}")
+            return _normalize_case_summary(case, data)
+        except Exception as e:
+            print(f"[RAG CACHE] invalid cache case_no={case_no}: {e}")
+
+    print(f"[RAG CACHE] miss case_no={case_no}")
+    summary = summarize_single_case(case)
+    cache_set_json(
+        cache_key,
+        json.dumps(summary, ensure_ascii=False),
+        settings.RAG_CASE_CACHE_TTL_SECONDS,
+    )
+    return summary
+
+
+def summarize_single_case(case: dict) -> dict:
     system_prompt = """
     너는 형사 사건 판례 검색 엔진의 결과 요약 봇이야.
     감정적인 공감이나 서론, 결론, 면책 문구(법적 효력이 없다는 경고 등)를 절대 붙이지 마.
@@ -156,31 +194,23 @@ def summarize_cases_for_ui(user_text: str, cases: list[dict]) -> list[dict]:
     """
 
     user_prompt = f"""
-    [사용자 사건 개요]
-    {user_text}
-
-    [후보 판례들]
-    {cases_block}
+    [후보 판례]
+    - 사건번호: {case.get('case_no', '')}
+    - 죄목(label): {case.get('label', '')}
+    - 사실관계(facts): {case.get('facts', '')[:1200]}
 
     위 정보를 참고해서, 아래 형식의 JSON만 출력해라.
 
     {{
-      "cases": [
-        {{
-          "case_no": "<해당 판례 사건번호 그대로>",
-          "label": "<해당 판례 label 그대로>",
-          "summary": "<해당 판례의 사건 요약(1~2문장)>",
-          "result": "<유죄/무죄 여부 및 적용 죄목, 형량 등 판결 결과 요약>",
-          "similarity": "<사용자 사건과 이 판례가 왜 비슷한지 한 문장으로>"
-        }},
-        ...
-      ]
+      "case_no": "<해당 판례 사건번호 그대로>",
+      "label": "<해당 판례 label 그대로>",
+      "summary": "<해당 판례의 사건 요약(1~2문장)>",
+      "result": "<유죄/무죄 여부 및 적용 죄목, 형량 등 판결 결과 요약>"
     }}
 
     주의:
     - JSON 이외의 텍스트는 출력하지 마라.
-    - 줄바꿈은 자유롭게 써도 되지만, 요약은 1~3문장 정도로 간결하게 작성해라.
-    - 각 판례는 반드시 하나씩 매칭해서 작성하고, 판례 순서는 입력 순서를 그대로 유지해라.
+    - 요약은 1~3문장 정도로 간결하게 작성해라.
     """
 
     try:
@@ -193,36 +223,31 @@ def summarize_cases_for_ui(user_text: str, cases: list[dict]) -> list[dict]:
         )
         raw = resp.choices[0].message.content or ""
         data = json.loads(raw)
-        out_cases = data.get("cases", [])
+        return _normalize_case_summary(case, data)
+    except Exception as e:
+        print(f"[RAG CACHE] summarize failed case_no={case.get('case_no', '')}: {e}")
+        return _fallback_case_summary(case)
 
-        normalized: list[dict] = []
-        for fallback, c_out in zip(cases, out_cases):
-            normalized.append(
-                {
-                    "case_no": c_out.get("case_no") or fallback.get("case_no", ""),
-                    "label":   c_out.get("label")   or fallback.get("label", ""),
-                    "summary": (c_out.get("summary") or "").strip()
-                            or fallback.get("summary", "")[:200],
-                    "result":  (c_out.get("result") or "").strip(),
-                    "similarity": (c_out.get("similarity") or "").strip(),
-                }
-            )
-        return normalized
 
-    except Exception:
-        # LLM JSON 파싱 실패 시, 최소한의 fallback 구조라도 채워서 반환
-        fallback_list: list[dict] = []
-        for c in cases:
-            fallback_list.append(
-                {
-                    "case_no": c.get("case_no", ""),
-                    "label":   c.get("label", ""),
-                    "summary": c.get("facts", "")[:200],
-                    "result":  "(판결 결과는 판례 원문을 참고해야 합니다.)",
-                    "similarity": "(사실관계를 바탕으로 유사점을 검토해야 합니다.)",
-                }
-            )
-        return fallback_list
+def _normalize_case_summary(fallback: dict, data: dict) -> dict:
+    return {
+        "case_no": data.get("case_no") or fallback.get("case_no", ""),
+        "label": data.get("label") or fallback.get("label", ""),
+        "summary": (data.get("summary") or "").strip()
+        or fallback.get("summary", "")[:200]
+        or fallback.get("facts", "")[:200],
+        "result": (data.get("result") or "").strip()
+        or "(판결 결과는 판례 원문을 참고해야 합니다.)",
+    }
+
+
+def _fallback_case_summary(case: dict) -> dict:
+    return {
+        "case_no": case.get("case_no", ""),
+        "label": case.get("label", ""),
+        "summary": case.get("facts", "")[:200],
+        "result": "(판결 결과는 판례 원문을 참고해야 합니다.)",
+    }
 
 
 
