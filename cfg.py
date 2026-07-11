@@ -13,5 +13,6 @@ class Settings:
     RAG_DB_URL: str = os.getenv("RAG_DB_URL", "")
     REDIS_URL: str = os.getenv("REDIS_URL", "")
     RAG_CASE_CACHE_TTL_SECONDS: int = int(os.getenv("RAG_CASE_CACHE_TTL_SECONDS", "604800"))
+    RAG_CASE_SUMMARY_VERSION: str = os.getenv("RAG_CASE_SUMMARY_VERSION", "v1")
 
 settings = Settings()

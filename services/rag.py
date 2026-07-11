@@ -25,7 +25,8 @@ openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 def _case_summary_cache_key(case_no: str) -> str:
     normalized = (case_no or "unknown").strip()
-    return f"baro:rag:case-summary:{normalized}"
+    version = (settings.RAG_CASE_SUMMARY_VERSION or "v1").strip()
+    return f"baro:rag:case-summary:{version}:{normalized}"
 
 
 def _similarity_fallback(user_text: str, case: dict) -> str:
@@ -171,12 +172,12 @@ def get_or_create_case_summary(case: dict) -> dict:
     if cached:
         try:
             data = json.loads(cached)
-            print(f"[RAG CACHE] hit case_no={case_no}")
+            print(f"[RAG CACHE] hit version={settings.RAG_CASE_SUMMARY_VERSION} case_no={case_no}")
             return _normalize_case_summary(case, data)
         except Exception as e:
-            print(f"[RAG CACHE] invalid cache case_no={case_no}: {e}")
+            print(f"[RAG CACHE] invalid cache version={settings.RAG_CASE_SUMMARY_VERSION} case_no={case_no}: {e}")
 
-    print(f"[RAG CACHE] miss case_no={case_no}")
+    print(f"[RAG CACHE] miss version={settings.RAG_CASE_SUMMARY_VERSION} case_no={case_no}")
     summary = summarize_single_case(case)
     cache_set_json(
         cache_key,
